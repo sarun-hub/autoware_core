@@ -13,21 +13,21 @@
 // limitations under the License.
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
-#include <gtest/gtest.h>
-
-#include <filesystem>
-#include <string>
-
+#include <autoware/marker_utils/marker_conversion.hpp>
+#include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <rclcpp/clock.hpp>
+
+#include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-#include <autoware/marker_utils/marker_conversion.hpp>
-#include <autoware_utils/geometry/boost_polygon_utils.hpp>
-#include <autoware_perception_msgs/msg/predicted_objects.hpp>
+#include <gtest/gtest.h>
 #include <lanelet2_core/primitives/CompoundPolygon.h>
+
+#include <filesystem>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -40,7 +40,10 @@ protected:
   void SetUp() override
   {
     now_ = rclcpp::Clock().now();
-    color_.r = 1.0f; color_.g = 0.0f; color_.b = 0.0f; color_.a = 1.0f;
+    color_.r = 1.0f;
+    color_.g = 0.0f;
+    color_.b = 0.0f;
+    color_.a = 1.0f;
     header_.frame_id = "map";
     header_.stamp = now_;
   }
@@ -50,35 +53,32 @@ protected:
   std_msgs::msg::Header header_;
 };
 
-auto make_point = [](float x, float y, float z){
-    geometry_msgs::msg::Point32 p;
-    p.x = x; p.y = y; p.z = z;
-    return p;
-  };
+auto make_point = [](float x, float y, float z) {
+  geometry_msgs::msg::Point32 p;
+  p.x = x;
+  p.y = y;
+  p.z = z;
+  return p;
+};
 
-  template<typename PointT>
-  void expect_point_eq(
-    const PointT & p,
-    double x, double y, double z)
-  {
-    EXPECT_DOUBLE_EQ(p.x, x);
-    EXPECT_DOUBLE_EQ(p.y, y);
-    EXPECT_DOUBLE_EQ(p.z, z);
-  }
-   
-    
+template <typename PointT>
+void expect_point_eq(const PointT & p, double x, double y, double z)
+{
+  EXPECT_DOUBLE_EQ(p.x, x);
+  EXPECT_DOUBLE_EQ(p.y, y);
+  EXPECT_DOUBLE_EQ(p.z, z);
+}
+
 TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
 {
-    geometry_msgs::msg::Polygon poly;
-    poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
-    poly.points.push_back(make_point(1.0f, 0.0f, 0.0f));
-    poly.points.push_back(make_point(1.0f, 1.0f, 0.0f));
-        
+  geometry_msgs::msg::Polygon poly;
+  poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
+  poly.points.push_back(make_point(1.0f, 0.0f, 0.0f));
+  poly.points.push_back(make_point(1.0f, 1.0f, 0.0f));
+
   auto arr = autoware::marker_utils::make_marker_from_polygon(
-    poly, header_.frame_id, now_, "ns", 42,
-    visualization_msgs::msg::Marker::LINE_STRIP,
-    0.1, 0.1, 0.1,
-    color_);
+    poly, header_.frame_id, now_, "ns", 42, visualization_msgs::msg::Marker::LINE_STRIP, 0.1, 0.1,
+    0.1, color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & pts = arr.markers[0].points;
@@ -91,36 +91,33 @@ TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
 
 TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineList)
 {
-    geometry_msgs::msg::Polygon poly;
-    poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
-    poly.points.push_back(make_point(1.0f, 0.0f, 0.0f));
-    poly.points.push_back(make_point(.5f, 1.0f, 0.0f));
+  geometry_msgs::msg::Polygon poly;
+  poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
+  poly.points.push_back(make_point(1.0f, 0.0f, 0.0f));
+  poly.points.push_back(make_point(.5f, 1.0f, 0.0f));
 
   auto arr = autoware::marker_utils::make_marker_from_polygon(
-    poly, header_.frame_id, now_, "ns", 7,
-    visualization_msgs::msg::Marker::LINE_LIST,
-    0.2, 0.2, 0.2,
-    color_);
+    poly, header_.frame_id, now_, "ns", 7, visualization_msgs::msg::Marker::LINE_LIST, 0.2, 0.2,
+    0.2, color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & pts = arr.markers[0].points;
 
   EXPECT_EQ(arr.markers[0].points.size(), 6u);
-expect_point_eq(pts[0], 0.0f, 0.0f, 0.0f);
-expect_point_eq(pts[1], 1.0f, 0.0f, 0.0f);
+  expect_point_eq(pts[0], 0.0f, 0.0f, 0.0f);
+  expect_point_eq(pts[1], 1.0f, 0.0f, 0.0f);
 
-expect_point_eq(pts[2], 1.0f, 0.0f, 0.0f);
-expect_point_eq(pts[3], 0.5f, 1.0f, 0.0f);
+  expect_point_eq(pts[2], 1.0f, 0.0f, 0.0f);
+  expect_point_eq(pts[3], 0.5f, 1.0f, 0.0f);
 
-expect_point_eq(pts[4], 0.5f, 1.0f, 0.0f);
-expect_point_eq(pts[5], 0.0f, 0.0f, 0.0f);
-  
+  expect_point_eq(pts[4], 0.5f, 1.0f, 0.0f);
+  expect_point_eq(pts[5], 0.0f, 0.0f, 0.0f);
 }
 
 TEST_F(MarkerConversionTest, CreatePullOverAreaMarkerArray)
 {
-  using autoware_utils::Point2d;
   using autoware_utils::MultiPolygon2d;
+  using autoware_utils::Point2d;
   using autoware_utils::Polygon2d;
 
   Polygon2d square;
@@ -134,8 +131,7 @@ TEST_F(MarkerConversionTest, CreatePullOverAreaMarkerArray)
   mp.push_back(square);
 
   double z = 2.5;
-  auto arr = autoware::marker_utils::create_pull_over_area_marker_array(
-    mp, header_, color_, z);
+  auto arr = autoware::marker_utils::create_pull_over_area_marker_array(mp, header_, color_, z);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   EXPECT_EQ(arr.markers[0].points.size(), ring.size());
@@ -150,9 +146,9 @@ TEST_F(MarkerConversionTest, CreatePullOverAreaMarkerArray)
 
 TEST_F(MarkerConversionTest, CreateLaneletPolygonMarkerArrayEmpty)
 {
-  lanelet::CompoundPolygon3d cp; 
-  auto arr = autoware::marker_utils::create_lanelet_polygon_marker_array(
-    cp, header_, "ns3d", color_);
+  lanelet::CompoundPolygon3d cp;
+  auto arr =
+    autoware::marker_utils::create_lanelet_polygon_marker_array(cp, header_, "ns3d", color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   EXPECT_TRUE(arr.markers[0].points.empty());
@@ -168,16 +164,16 @@ TEST_F(MarkerConversionTest, CreateObjectsMarkerArray)
 
   int64_t module_id = 0x1234;
   double r = 0.1, g = 0.2, b = 0.3;
-  auto arr = autoware::marker_utils::create_objects_marker_array(
-    objs, "obj_ns", module_id, now_, r, g, b);
+  auto arr =
+    autoware::marker_utils::create_objects_marker_array(objs, "obj_ns", module_id, now_, r, g, b);
 
   ASSERT_EQ(arr.markers.size(), 1u);
-  int64_t expected_id = (module_id << (sizeof(int32_t)*8/2)) + 0;
+  int64_t expected_id = (module_id << (sizeof(int32_t) * 8 / 2)) + 0;
   EXPECT_EQ(arr.markers[0].id, expected_id);
-auto m=arr.markers[0];
+  auto m = arr.markers[0];
   EXPECT_DOUBLE_EQ(m.pose.position.x, 5.0);
   EXPECT_DOUBLE_EQ(m.pose.position.y, -3.0);
-  EXPECT_DOUBLE_EQ(m.pose.position.z, 0.0);  
+  EXPECT_DOUBLE_EQ(m.pose.position.z, 0.0);
 
   EXPECT_DOUBLE_EQ(m.pose.orientation.x, 0.0);
   EXPECT_DOUBLE_EQ(m.pose.orientation.y, 0.0);
