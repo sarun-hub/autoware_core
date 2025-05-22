@@ -97,6 +97,7 @@ visualization_msgs::msg::Marker create_boost_polygon_marker(
       marker.points.push_back(p2);
     }
   } else {
+    marker.pose.orientation = autoware_utils::create_marker_orientation(0, 0, 0, 1.0);
     for (const auto & p : polygon.outer()) {
       geometry_msgs::msg::Point pt;
       pt.x = p.x();
@@ -105,7 +106,6 @@ visualization_msgs::msg::Marker create_boost_polygon_marker(
       marker.points.push_back(pt);
     }
   }
-
   return marker;
 }
 
@@ -125,25 +125,25 @@ visualization_msgs::msg::MarkerArray create_pull_over_area_marker_array(
   return marker_array;
 }
 
-visualization_msgs::msg::MarkerArray create_objects_marker_array(
-  const autoware_perception_msgs::msg::PredictedObjects & objects, const std::string & ns,
-  const int64_t id, const rclcpp::Time & now, const double r, const double g, const double b)
-{
-  visualization_msgs::msg::MarkerArray marker_array;
+  visualization_msgs::msg::MarkerArray create_objects_marker_array(
+    const autoware_perception_msgs::msg::PredictedObjects & objects, const std::string & ns,
+    const int64_t id, const rclcpp::Time & now, const std_msgs::msg::ColorRGBA & color)
+  {
+    visualization_msgs::msg::MarkerArray marker_array;
 
-  auto marker = create_default_marker(
-    "map", now, ns, 0, visualization_msgs::msg::Marker::CUBE, create_marker_scale(3.0, 1.0, 1.0),
-    create_marker_color(static_cast<float>(r), static_cast<float>(g), static_cast<float>(b), 0.8f));
-  marker.lifetime = rclcpp::Duration::from_seconds(1.0);
+    auto marker = create_default_marker(
+      "map", now, ns, 0, visualization_msgs::msg::Marker::CUBE, create_marker_scale(3.0, 1.0, 1.0),
+      color);
+    marker.lifetime = rclcpp::Duration::from_seconds(1.0);
 
-  for (size_t i = 0; i < objects.objects.size(); ++i) {
-    const auto & object = objects.objects.at(i);
-    marker.id = static_cast<int>((id << (sizeof(int32_t) * 8 / 2)) + static_cast<int32_t>(i));
-    marker.pose = object.kinematics.initial_pose_with_covariance.pose;
-    marker_array.markers.push_back(marker);
+    for (size_t i = 0; i < objects.objects.size(); ++i) {
+      const auto & object = objects.objects.at(i);
+      marker.id = static_cast<int>((id << (sizeof(int32_t) * 8 / 2)) + static_cast<int32_t>(i));
+      marker.pose = object.kinematics.initial_pose_with_covariance.pose;
+      marker_array.markers.push_back(marker);
+    }
+    return marker_array;
   }
-  return marker_array;
-}
 
 visualization_msgs::msg::MarkerArray visualize_debug_footprint(
   autoware_utils::LinearRing2d goal_footprint)

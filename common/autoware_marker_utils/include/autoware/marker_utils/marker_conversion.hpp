@@ -87,7 +87,7 @@ visualization_msgs::msg::MarkerArray create_pull_over_area_marker_array(
  */
 visualization_msgs::msg::MarkerArray create_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const std::string & ns,
-  const int64_t id, const rclcpp::Time & now, const double r, const double g, const double b);
+  const int64_t id, const rclcpp::Time & now, const std_msgs::msg::ColorRGBA & color);
 
 /**
  * @brief create debug footprint from goal_footprint (LinearRing2d)
