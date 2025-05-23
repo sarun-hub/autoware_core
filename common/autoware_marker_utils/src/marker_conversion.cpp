@@ -14,15 +14,20 @@
 
 #include <autoware/marker_utils/marker_conversion.hpp>
 #include <autoware_utils/geometry/boost_polygon_utils.hpp>
+#include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/ros/marker_helper.hpp>
 #include <rclcpp/clock.hpp>
 #include <rclcpp/time.hpp>
 
+#include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 
 #include <lanelet2_core/primitives/CompoundPolygon.h>
 
+#include <algorithm>
+#include <limits>
 #include <string>
+#include <vector>
 
 namespace autoware::marker_utils
 {
@@ -109,16 +114,16 @@ visualization_msgs::msg::Marker create_boost_polygon_marker(
   return marker;
 }
 
-visualization_msgs::msg::MarkerArray create_pull_over_area_marker_array(
+visualization_msgs::msg::MarkerArray create_boost_multipolygon_marker(
   const autoware_utils::MultiPolygon2d & area_polygons, const std_msgs::msg::Header & header,
+  const std::string & ns, int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, double z)
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
   for (size_t i = 0; i < area_polygons.size(); ++i) {
-    const auto marker = create_boost_polygon_marker(
-      area_polygons[i], header, "pull_over_area_" + std::to_string(i), static_cast<int32_t>(i),
-      visualization_msgs::msg::Marker::LINE_STRIP, create_marker_scale(0.1f, 0.0f, 0.0f), color, z);
+    const auto marker =
+      create_boost_polygon_marker(area_polygons[i], header, ns, id, marker_type, scale, color, z);
 
     marker_array.markers.push_back(marker);
   }
@@ -171,4 +176,66 @@ visualization_msgs::msg::MarkerArray visualize_debug_footprint(
 
   return msg;
 }
+
+// Temporary (TODO: function from "autoware/behavior_path_planner_common/utils/path_utils.hpp" is it
+// ok to import?)
+std::vector<double> calcPathArcLengthArray(
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const size_t start = 0,
+  const size_t end = std::numeric_limits<size_t>::max(), const double offset = 0.0)
+{
+  const auto bounded_start = std::max(start, size_t{0});
+  const auto bounded_end = std::min(end, path.points.size());
+  std::vector<double> out;
+  out.reserve(bounded_end - bounded_start);
+
+  double sum = offset;
+  out.push_back(sum);
+
+  for (size_t i = bounded_start + 1; i < bounded_end; ++i) {
+    sum += autoware_utils::calc_distance2d(path.points.at(i).point, path.points.at(i - 1).point);
+    out.push_back(sum);
+  }
+  return out;
+}
+
+visualization_msgs::msg::MarkerArray create_path_marker_array(
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
+  const int64_t lane_id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
+  const std_msgs::msg::ColorRGBA & color, const bool with_text)
+{
+  auto uid = lane_id << (sizeof(int32_t) * 8 / 2);
+  int32_t idx = 0;
+  int32_t i = 0;
+  const auto arclength = calcPathArcLengthArray(path);
+  visualization_msgs::msg::MarkerArray msg;
+
+  visualization_msgs::msg::Marker marker = create_default_marker(
+    "map", now, ns, static_cast<int32_t>(uid), visualization_msgs::msg::Marker::ARROW, scale,
+    color);
+
+  for (const auto & p : path.points) {
+    marker.id = uid + i++;
+    marker.lifetime = rclcpp::Duration::from_seconds(0.3);
+    marker.pose = p.point.pose;
+
+    if (
+      std::find(p.lane_ids.begin(), p.lane_ids.end(), lane_id) == p.lane_ids.end() && !with_text) {
+      marker.color = create_marker_color(0.5, 0.5, 0.5, 0.999);
+    }
+    msg.markers.push_back(marker);
+    if (i % 10 == 0 && with_text) {
+      visualization_msgs::msg::Marker marker_text = create_default_marker(
+        "map", now, ns, 0L, visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
+        create_marker_scale(0.2, 0.1, 0.3), create_marker_color(1, 1, 1, 0.999));
+      marker_text.id = uid + i++;
+      std::stringstream ss;
+      ss << std::fixed << std::setprecision(1) << "i=" << idx << "\ns=" << arclength.at(idx);
+      marker_text.text = ss.str();
+      msg.markers.push_back(marker_text);
+    }
+    ++idx;
+  }
+  return msg;
+}
+
 }  // namespace autoware::marker_utils

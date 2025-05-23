@@ -179,9 +179,8 @@ TEST_F(MarkerConversionTest, CreateObjectsMakerArray)
   objs.objects.push_back(o);
 
   int64_t module_id = 0x1234;
-  double r = 0.1, g = 0.2, b = 0.3;
   auto arr =
-    autoware::marker_utils::create_objects_marker_array(objs, "obj_ns", module_id, now_, r, g, b);
+    autoware::marker_utils::create_objects_marker_array(objs, "obj_ns", module_id, now_, color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   int64_t expected_id = (module_id << (sizeof(int32_t) * 8 / 2)) + 0;

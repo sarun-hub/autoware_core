@@ -19,6 +19,7 @@
 #include <autoware_utils/ros/marker_helper.hpp>
 #include <rclcpp/time.hpp>
 
+#include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -56,8 +57,9 @@ visualization_msgs::msg::MarkerArray create_polygon_marker_array(
  * @param [in] z z position of the marker
  * @return marker array of the boost Polygon2d
  */
-visualization_msgs::msg::MarkerArray create_boost_polygon_marker(
+visualization_msgs::msg::Marker create_boost_polygon_marker(
   const autoware_utils::Polygon2d & polygon, const std_msgs::msg::Header & header,
+  const std::string & ns, int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, double z);
 
 /**
@@ -79,10 +81,7 @@ visualization_msgs::msg::MarkerArray create_pull_over_area_marker_array(
  * @param [in] id id of the marker
  * @param [in] now current time
  * @param [in] scale scale of the marker
- * @param [in] r red value of marker color
- * @param [in] g red value of marker color
- * @param [in] b red value of marker color
- * @param [in] z z position of the marker
+ * @param [in] color color of the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
 visualization_msgs::msg::MarkerArray create_objects_marker_array(
@@ -96,6 +95,22 @@ visualization_msgs::msg::MarkerArray create_objects_marker_array(
  */
 visualization_msgs::msg::MarkerArray visualize_debug_footprint(
   autoware_utils::LinearRing2d goal_footprint);
+
+/**
+ * @brief create marker array from predicted object
+ * @param [in] path PathWithLaneId object
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] now current time
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @param [in] with_text if true, add text to the marker
+ * @return marker array of the boost MultiPolygon2d (Pull over area)
+ */
+visualization_msgs::msg::MarkerArray create_path_marker_array(
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
+  const int64_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
+  const std_msgs::msg::ColorRGBA & color, const bool with_text = false);
 
 /**
  * @brief create marker array from lanelet polygon (CompoundPolygon3d or ConstPolygon3d)
