@@ -16,11 +16,14 @@
 #include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/ros/marker_helper.hpp>
+#include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 #include <rclcpp/clock.hpp>
 #include <rclcpp/time.hpp>
 
 #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
 #include <autoware_perception_msgs/msg/predicted_objects.hpp>
+#include <autoware_perception_msgs/msg/predicted_path.hpp>
+#include <autoware_planning_msgs/msg/trajectory_point.hpp>
 
 #include <lanelet2_core/primitives/CompoundPolygon.h>
 
@@ -29,13 +32,14 @@
 #include <string>
 #include <vector>
 
-namespace autoware::marker_utils
+namespace autoware::experimental::marker_utils
 {
 using autoware_utils::create_default_marker;
 using autoware_utils::create_marker_color;
+using autoware_utils::create_marker_position;
 using autoware_utils::create_marker_scale;
 
-visualization_msgs::msg::MarkerArray create_polygon_marker_array(
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Polygon & polygon, const std::string & frame_id,
   const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
   const geometry_msgs::msg::Vector3 scale, const std_msgs::msg::ColorRGBA & color)
@@ -79,13 +83,70 @@ visualization_msgs::msg::MarkerArray create_polygon_marker_array(
   return marker_array;
 }
 
-visualization_msgs::msg::Marker create_boost_polygon_marker(
-  const autoware_utils::Polygon2d & polygon, const std_msgs::msg::Header & header,
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+  const rclcpp::Time & stamp, const geometry_msgs::msg::Point & stop_obstacle_point)
+{
+  visualization_msgs::msg::MarkerArray marker_array;
+  auto marker = create_default_marker(
+    "map", stamp, "no_start_obstacle_text", 0, visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
+    create_marker_scale(0.0, 0.0, 1.0), create_marker_color(1.0, 1.0, 1.0, 0.999));
+
+  marker.pose.position = stop_obstacle_point;
+  marker.pose.position.z += 2.0;
+
+  marker.text = "!";
+  marker_array.markers.push_back(marker);
+  return marker_array;
+}
+
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+  autoware_utils::LinearRing2d goal_footprint)
+{
+  visualization_msgs::msg::MarkerArray msg;
+  auto marker = create_default_marker(
+    "map", rclcpp::Clock().now(), "goal_footprint", 0, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.05, 0.0, 0.0), create_marker_color(0.99, 0.99, 0.2, 1.0));
+  marker.lifetime = rclcpp::Duration::from_seconds(2.5);
+
+  for (size_t i = 0; i < goal_footprint.size(); ++i) {
+    geometry_msgs::msg::Point pt;
+    pt.x = goal_footprint[i][0];
+    pt.y = goal_footprint[i][1];
+    pt.z = 0.0;
+    marker.points.push_back(pt);
+  }
+
+  if (!marker.points.empty()) {
+    marker.points.push_back(marker.points.front());
+  }
+
+  msg.markers.push_back(marker);
+
+  return msg;
+}
+
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+  const autoware_utils::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, double z)
 {
+  visualization_msgs::msg::MarkerArray marker_array;
+
+  for (size_t i = 0; i < area_polygons.size(); ++i) {
+    const auto marker = create_autoware_geometry_marker(
+      area_polygons[i], stamp, ns, id, marker_type, scale, color, z);
+    marker_array.markers.push_back(marker);
+  }
+  return marker_array;
+}
+
+visualization_msgs::msg::Marker create_autoware_geometry_marker(
+  const autoware_utils::Polygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
+  const std_msgs::msg::ColorRGBA & color, double z)
+{
   visualization_msgs::msg::Marker marker =
-    create_default_marker(header.frame_id, header.stamp, ns, id, marker_type, scale, color);
+    create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
   if (marker_type == visualization_msgs::msg::Marker::LINE_LIST) {
     for (size_t i = 0; i < polygon.outer().size(); ++i) {
@@ -114,23 +175,7 @@ visualization_msgs::msg::Marker create_boost_polygon_marker(
   return marker;
 }
 
-visualization_msgs::msg::MarkerArray create_boost_multipolygon_marker(
-  const autoware_utils::MultiPolygon2d & area_polygons, const std_msgs::msg::Header & header,
-  const std::string & ns, int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
-  const std_msgs::msg::ColorRGBA & color, double z)
-{
-  visualization_msgs::msg::MarkerArray marker_array;
-
-  for (size_t i = 0; i < area_polygons.size(); ++i) {
-    const auto marker =
-      create_boost_polygon_marker(area_polygons[i], header, ns, id, marker_type, scale, color, z);
-
-    marker_array.markers.push_back(marker);
-  }
-  return marker_array;
-}
-
-visualization_msgs::msg::MarkerArray create_objects_marker_array(
+visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const std::string & ns,
   const int64_t id, const rclcpp::Time & now, const std_msgs::msg::ColorRGBA & color)
 {
@@ -148,33 +193,6 @@ visualization_msgs::msg::MarkerArray create_objects_marker_array(
     marker_array.markers.push_back(marker);
   }
   return marker_array;
-}
-
-visualization_msgs::msg::MarkerArray visualize_debug_footprint(
-  autoware_utils::LinearRing2d goal_footprint)
-{
-  visualization_msgs::msg::MarkerArray msg;
-  auto marker = autoware_utils::create_default_marker(
-    "map", rclcpp::Clock().now(), "goal_footprint", 0, visualization_msgs::msg::Marker::LINE_STRIP,
-    autoware_utils::create_marker_scale(0.05, 0.0, 0.0),
-    autoware_utils::create_marker_color(0.99, 0.99, 0.2, 1.0));
-  marker.lifetime = rclcpp::Duration::from_seconds(2.5);
-
-  for (size_t i = 0; i < goal_footprint.size(); ++i) {
-    geometry_msgs::msg::Point pt;
-    pt.x = goal_footprint[i][0];
-    pt.y = goal_footprint[i][1];
-    pt.z = 0.0;
-    marker.points.push_back(pt);
-  }
-
-  if (!marker.points.empty()) {
-    marker.points.push_back(marker.points.front());
-  }
-
-  msg.markers.push_back(marker);
-
-  return msg;
 }
 
 // Temporary (TODO: function from "autoware/behavior_path_planner_common/utils/path_utils.hpp" is it
@@ -198,7 +216,7 @@ std::vector<double> calcPathArcLengthArray(
   return out;
 }
 
-visualization_msgs::msg::MarkerArray create_path_marker_array(
+visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
   const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
   const int64_t lane_id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, const bool with_text)
@@ -229,7 +247,6 @@ visualization_msgs::msg::MarkerArray create_path_marker_array(
         create_marker_scale(0.2, 0.1, 0.3), create_marker_color(1, 1, 1, 0.999));
       marker_text.id = uid + i++;
       std::stringstream ss;
-      ss << std::fixed << std::setprecision(1) << "i=" << idx << "\ns=" << arclength.at(idx);
       marker_text.text = ss.str();
       msg.markers.push_back(marker_text);
     }
@@ -238,4 +255,84 @@ visualization_msgs::msg::MarkerArray create_path_marker_array(
   return msg;
 }
 
-}  // namespace autoware::marker_utils
+void create_vehicle_footprint_marker(
+  visualization_msgs::msg::Marker & marker, const geometry_msgs::msg::Pose & pose,
+  const double & base_to_right, const double & base_to_left, const double & base_to_front,
+  const double & base_to_rear)
+{
+  marker.points.push_back(
+    autoware_utils::calc_offset_pose(pose, base_to_front, base_to_left, 0.0).position);
+  marker.points.push_back(
+    autoware_utils::calc_offset_pose(pose, base_to_front, -base_to_right, 0.0).position);
+  marker.points.push_back(
+    autoware_utils::calc_offset_pose(pose, -base_to_rear, -base_to_right, 0.0).position);
+  marker.points.push_back(
+    autoware_utils::calc_offset_pose(pose, -base_to_rear, base_to_left, 0.0).position);
+  marker.points.push_back(marker.points.front());
+}
+
+visualization_msgs::msg::MarkerArray create_vehicle_trajectory_point_marker_array(
+  const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & mpt_traj,
+  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const size_t sampling_num)
+{
+  auto marker = create_default_marker(
+    "map", rclcpp::Clock().now(), "mpt_footprints", 0, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.05, 0.0, 0.0), create_marker_color(0.99, 0.99, 0.2, 0.99));
+  marker.lifetime = rclcpp::Duration::from_seconds(1.5);
+
+  const double base_to_right = (vehicle_info.wheel_tread_m / 2.0) + vehicle_info.right_overhang_m;
+  const double base_to_left = (vehicle_info.wheel_tread_m / 2.0) + vehicle_info.left_overhang_m;
+  const double base_to_front = vehicle_info.vehicle_length_m - vehicle_info.rear_overhang_m;
+  const double base_to_rear = vehicle_info.rear_overhang_m;
+
+  visualization_msgs::msg::MarkerArray marker_array;
+  for (size_t i = 0; i < mpt_traj.size(); ++i) {
+    if (i % sampling_num != 0) {
+      continue;
+    }
+
+    marker.id = i;
+    marker.points.clear();
+
+    const auto & traj_point = mpt_traj.at(i);
+    create_vehicle_footprint_marker(
+      marker, traj_point.pose, base_to_right, base_to_left, base_to_front, base_to_rear);
+    marker_array.markers.push_back(marker);
+  }
+  return marker_array;
+}
+
+visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
+  const autoware_perception_msgs::msg::PredictedPath & predicted_path,
+  const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns,
+  const int32_t & id, const std_msgs::msg::ColorRGBA & color)
+{
+  if (predicted_path.path.empty()) {
+    return visualization_msgs::msg::MarkerArray{};
+  }
+
+  const auto current_time = rclcpp::Clock{RCL_ROS_TIME}.now();
+  const auto & path = predicted_path.path;
+
+  visualization_msgs::msg::Marker marker = create_default_marker(
+    "map", current_time, ns, id, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.1, 0.1, 0.1), color);
+  marker.lifetime = rclcpp::Duration::from_seconds(1.5);
+
+  visualization_msgs::msg::MarkerArray marker_array;
+  const double half_width = -vehicle_info.vehicle_width_m / 2.0;
+  const double base_to_front = vehicle_info.vehicle_length_m - vehicle_info.rear_overhang_m;
+  const double base_to_rear = vehicle_info.rear_overhang_m;
+
+  for (size_t i = 0; i < path.size(); ++i) {
+    marker.id = i + id;
+    marker.points.clear();
+
+    const auto & predicted_path_pose = path.at(i);
+    create_vehicle_footprint_marker(
+      marker, predicted_path_pose, half_width, half_width, base_to_front, base_to_rear);
+    marker_array.markers.push_back(marker);
+  }
+  return marker_array;
+}
+}  // namespace autoware::experimental::marker_utils

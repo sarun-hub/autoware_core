@@ -25,8 +25,7 @@ if(BUILD_TESTING)
   endforeach()
 endif()
 
-ament_auto_package(INSTALL_TO_SHARE
-)
+ament_auto_package()
 
 install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
