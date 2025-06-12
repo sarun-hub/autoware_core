@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 #include <lanelet2_core/primitives/CompoundPolygon.h>
+#include <lanelet2_core/primitives/Lanelet.h>
 
 #include <filesystem>
 #include <string>
@@ -345,6 +346,146 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
   const auto & m = arr.markers[0];
   EXPECT_EQ(m.id, 5);
   EXPECT_EQ(m.points.size(), 5u);
+}
+
+// Test 14: one PredictedObject + one pose within range → one marker with >0 points
+TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
+{
+  visualization_msgs::msg::MarkerArray arr;
+  visualization_msgs::msg::Marker base = create_default_marker(
+    header_.frame_id, now_, "objects", 7, visualization_msgs::msg::Marker::LINE_LIST,
+    create_marker_scale(0.1, 0.1, 0.1), color_);
+  // build one object with one predicted path and one pose
+  autoware_perception_msgs::msg::PredictedObjects objs;
+  autoware_perception_msgs::msg::PredictedObject obj;
+  // a very simple shape: a unit‐square box
+  obj.shape.type = autoware_perception_msgs::msg::Shape::BOUNDING_BOX;
+  autoware_perception_msgs::msg::PredictedPath path;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 1.0;
+  pose.position.y = 2.0;
+  pose.position.z = 0.0;
+  path.path.push_back(pose);
+  obj.kinematics.predicted_paths.push_back(path);
+  objs.objects.push_back(obj);
+
+  geometry_msgs::msg::Pose ego;
+  ego.position.x = 0.0;
+  ego.position.y = 0.0;
+  ego.position.z = 0.0;
+
+  autoware::experimental::marker_utils::create_predicted_objects_marker_array(arr, base, objs, ego);
+
+  // should have exactly one marker
+  ASSERT_EQ(arr.markers.size(), 1u);
+  const auto & m = arr.markers[0];
+  // each corner of the unit‐box plus closing segment: 4 edges → 10 points
+  EXPECT_EQ(m.points.size(), 10u);
+  // check first two points are the first edge of the box
+  EXPECT_DOUBLE_EQ(m.points[0].x, 1.0);
+  EXPECT_DOUBLE_EQ(m.points[0].y, 2.0);
+  EXPECT_DOUBLE_EQ(m.points[1].x, 1.0);
+  EXPECT_DOUBLE_EQ(m.points[1].y, 2.0);
+}
+
+// Test 15: one simple rectangular lanelet → one marker, closed ring
+TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
+{
+  // build a 1×1 rectangular lanelet
+  using lanelet::ConstLanelet;
+  using lanelet::Lanelet;
+  using lanelet::LineString3d;
+  using lanelet::Point3d;
+
+  LineString3d leftBound{1, {Point3d{0, 0, 0}, Point3d{1, 0, 0}}};
+  LineString3d rightBound{2, {Point3d{1, 1, 0}, Point3d{0, 1, 0}}};
+  Lanelet raw{3, leftBound, rightBound};
+  ConstLanelet cl{raw};
+  lanelet::ConstLanelets lls{cl};
+
+  visualization_msgs::msg::MarkerArray arr;
+  visualization_msgs::msg::Marker marker = create_default_marker(
+    header_.frame_id, now_, "lanelets", 5, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.1, 0.1, 0.1), color_);
+
+  const double Z = 1.0;
+  autoware::experimental::marker_utils::create_lanelets_marker_array(lls, marker, arr, Z);
+
+  ASSERT_EQ(arr.markers.size(), 1u);
+  const auto & m_out = arr.markers[0];
+
+  // get the expected basicPolygon and ensure it was closed
+  auto poly = cl.polygon2d().basicPolygon();
+  EXPECT_EQ(m_out.points.size(), poly.size() + 1);
+
+  // verify closure: last == first
+  EXPECT_DOUBLE_EQ(m_out.points.back().x, poly.front().x());
+  EXPECT_DOUBLE_EQ(m_out.points.back().y, poly.front().y());
+  EXPECT_DOUBLE_EQ(m_out.points.back().z, Z + 0.5);
+}
+
+// Test 16: create_autoware_geometry_marker_array with a MultiPolygon2d of two rings
+TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
+{
+  using autoware_utils::MultiPolygon2d;
+  using autoware_utils::Polygon2d;
+
+  // build a triangle and a square
+  Polygon2d tri;
+  {
+    auto & r = tri.outer();
+    r.push_back({0.0, 0.0});
+    r.push_back({1.0, 0.0});
+    r.push_back({0.0, 1.0});
+  }
+  Polygon2d sq;
+  {
+    auto & r = sq.outer();
+    r.push_back({0.0, 0.0});
+    r.push_back({2.0, 0.0});
+    r.push_back({2.0, 2.0});
+    r.push_back({0.0, 2.0});
+  }
+  MultiPolygon2d mp{tri, sq};
+
+  visualization_msgs::msg::MarkerArray arr;
+  auto base = create_default_marker(
+    header_.frame_id, now_, "mp_test", 42, visualization_msgs::msg::Marker::LINE_LIST,
+    create_marker_scale(0.1, 0.1, 0.1), color_);
+  arr.markers.push_back(base);
+
+  // single trajectory point at (5,6,7)
+  std::vector<autoware_planning_msgs::msg::TrajectoryPoint> traj(1);
+  traj[0].pose.position.x = 5.0;
+  traj[0].pose.position.y = 6.0;
+  traj[0].pose.position.z = 7.0;
+
+  autoware::experimental::marker_utils::create_autoware_geometry_marker_array(mp, arr, 0, traj);
+
+  ASSERT_EQ(arr.markers.size(), 1u);
+  const auto & pts = arr.markers[0].points;
+
+  ASSERT_EQ(pts.size(), 4u);
+
+  // first push: trajectory point
+  EXPECT_DOUBLE_EQ(pts[0].x, 5.0);
+  EXPECT_DOUBLE_EQ(pts[0].y, 6.0);
+  EXPECT_DOUBLE_EQ(pts[0].z, 7.0);
+
+  // centroid of triangle (0,0),(1,0),(0,1) is (1/3,1/3)
+  EXPECT_DOUBLE_EQ(pts[1].x, 1.0 / 3.0);
+  EXPECT_DOUBLE_EQ(pts[1].y, 1.0 / 3.0);
+  EXPECT_DOUBLE_EQ(pts[1].z, 0.0);
+
+  // second loop: trajectory point again
+  EXPECT_DOUBLE_EQ(pts[2].x, 5.0);
+  EXPECT_DOUBLE_EQ(pts[2].y, 6.0);
+  EXPECT_DOUBLE_EQ(pts[2].z, 7.0);
+
+  // centroid of square (0,0),(2,0),(2,2),(0,2) is (1,1)
+  EXPECT_DOUBLE_EQ(pts[3].x, 1.0);
+  EXPECT_DOUBLE_EQ(pts[3].y, 1.0);
+  EXPECT_DOUBLE_EQ(pts[3].z, 0.0);
 }
 
 }  // namespace

@@ -25,7 +25,11 @@
 #include <autoware_perception_msgs/msg/predicted_path.hpp>
 #include <autoware_planning_msgs/msg/trajectory_point.hpp>
 
+#include <boost/geometry/algorithms/centroid.hpp>
+#include <boost/geometry/strategies/cartesian/centroid_bashein_detmer.hpp>
+
 #include <lanelet2_core/primitives/CompoundPolygon.h>
+#include <lanelet2_core/primitives/Lanelet.h>
 
 #include <algorithm>
 #include <limits>
@@ -100,7 +104,7 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
 }
 
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
-  autoware_utils::LinearRing2d goal_footprint)
+  autoware_utils::LinearRing2d ring)
 {
   visualization_msgs::msg::MarkerArray msg;
   auto marker = create_default_marker(
@@ -108,10 +112,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
     create_marker_scale(0.05, 0.0, 0.0), create_marker_color(0.99, 0.99, 0.2, 1.0));
   marker.lifetime = rclcpp::Duration::from_seconds(2.5);
 
-  for (size_t i = 0; i < goal_footprint.size(); ++i) {
+  for (size_t i = 0; i < ring.size(); ++i) {
     geometry_msgs::msg::Point pt;
-    pt.x = goal_footprint[i][0];
-    pt.y = goal_footprint[i][1];
+    pt.x = ring[i][0];
+    pt.y = ring[i][1];
     pt.z = 0.0;
     marker.points.push_back(pt);
   }
@@ -138,6 +142,19 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
     marker_array.markers.push_back(marker);
   }
   return marker_array;
+}
+
+void create_autoware_geometry_marker_array(
+  const autoware_utils::MultiPolygon2d & multi_polygon,
+  visualization_msgs::msg::MarkerArray & marker_array, const size_t & trajectory_index,
+  const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory)
+{
+  for (const auto & polygon : multi_polygon) {
+    marker_array.markers.back().points.push_back(trajectory[trajectory_index].pose.position);
+    const auto centroid = boost::geometry::return_centroid<autoware_utils::Point2d>(polygon);
+    marker_array.markers.back().points.push_back(
+      geometry_msgs::msg::Point().set__x(centroid.x()).set__y(centroid.y()));
+  }
 }
 
 visualization_msgs::msg::Marker create_autoware_geometry_marker(
@@ -195,6 +212,36 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   return marker_array;
 }
 
+void create_predicted_objects_marker_array(
+  visualization_msgs::msg::MarkerArray & marker_array, visualization_msgs::msg::Marker base_marker,
+  const autoware_perception_msgs::msg::PredictedObjects & objects,
+  const geometry_msgs::msg::Pose & ego_pose)
+{
+  base_marker.ns = "objects";
+  base_marker.color = autoware_utils::create_marker_color(0.0, 1.0, 0.0, 1.0);
+  base_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+
+  lanelet::BasicPolygons2d object_polygons;
+  constexpr double max_draw_distance = 50.0;
+  for (const auto & obj : objects.objects) {
+    for (const auto & path : obj.kinematics.predicted_paths) {
+      for (const auto & pose : path.path) {
+        if (autoware_utils::calc_distance2d(pose, ego_pose) >= max_draw_distance) {
+          continue;
+        }
+        const auto outer = autoware_utils::to_polygon2d(pose, obj.shape).outer();
+        for (size_t i = 0, n = outer.size(); i < n; ++i) {
+          const auto & p1 = outer[i];
+          const auto & p2 = outer[(i + 1) % n];
+          base_marker.points.push_back(autoware_utils::create_marker_position(p1.x(), p1.y(), 0.0));
+          base_marker.points.push_back(autoware_utils::create_marker_position(p2.x(), p2.y(), 0.0));
+        }
+      }
+    }
+  }
+  marker_array.markers.push_back(base_marker);
+}
+
 // Temporary (TODO: function from "autoware/behavior_path_planner_common/utils/path_utils.hpp" is it
 // ok to import?)
 std::vector<double> calcPathArcLengthArray(
@@ -247,6 +294,7 @@ visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
         create_marker_scale(0.2, 0.1, 0.3), create_marker_color(1, 1, 1, 0.999));
       marker_text.id = uid + i++;
       std::stringstream ss;
+      ss << std::fixed << std::setprecision(1) << "i=" << idx << "\ns=" << arclength.at(idx);
       marker_text.text = ss.str();
       msg.markers.push_back(marker_text);
     }
@@ -334,5 +382,22 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
     marker_array.markers.push_back(marker);
   }
   return marker_array;
+}
+
+void create_lanelets_marker_array(
+  const lanelet::ConstLanelets & lanelets, visualization_msgs::msg::Marker & marker,
+  visualization_msgs::msg::MarkerArray & marker_array, double z)
+{
+  for (const auto & ll : lanelets) {
+    marker.points.clear();
+    for (const auto & p : ll.polygon2d().basicPolygon()) {
+      marker.points.push_back(autoware_utils::create_marker_position(p.x(), p.y(), z + 0.5));
+    }
+    if (!marker.points.empty()) {
+      marker.points.push_back(marker.points.front());
+    }
+    marker_array.markers.push_back(marker);
+    ++marker.id;
+  }
 }
 }  // namespace autoware::experimental::marker_utils

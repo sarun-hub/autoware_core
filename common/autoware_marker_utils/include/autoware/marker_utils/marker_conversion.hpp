@@ -53,29 +53,12 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Vector3 scale, const std_msgs::msg::ColorRGBA & color);
 
 /**
- * @brief create marker from Autoware Polygon2d
- * @param [in] polygon Autoware Polygon2d
- * @param [in] stamp time stamp of the marker
- * @param [in] ns namespace
- * @param [in] id id of the marker
- * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
- * @param [in] scale scale of the marker
- * @param [in] color color of the marker
- * @param [in] z z position of the marker
- * @return marker of the Autoware Polygon2d
- */
-visualization_msgs::msg::Marker create_autoware_geometry_marker(
-  const autoware_utils::Polygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
-  const std_msgs::msg::ColorRGBA & color, double z);
-
-/**
- * @brief create debug footprint from goal_footprint (LinearRing2d)
- * @param [in] goal_footprint LinearRing2d goal_footprint to convert into marker
- * @return marker array of the boost LinearRing2d (goal_footprint)
+ * @brief create footprint from LinearRing2d (used mainly for goal_footprint)
+ * @param [in] ring LinearRing2d  to convert into marker
+ * @return marker array of the boost LinearRing2d
  */
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
-  autoware_utils::LinearRing2d goal_footprint);
+  autoware_utils::LinearRing2d ring);
 
 /**
  * @brief create marker array from boost MultiPolygon2d (Pull over area)
@@ -95,7 +78,22 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const std_msgs::msg::ColorRGBA & color, double z);
 
 /**
+ * @brief insert marker from centroid of MultiPolygon2d and trajectory point to existing marker
+ * array marker array
+ * @param [in] multi_polygon boost MultiPolygon2d
+ * @param [in] marker_array marker array to store the markers
+ * @param [in] trajectory_index index of the trajectory point to draw
+ * @param [in] trajectory trajectory points to draw
+ */
+void create_autoware_geometry_marker_array(
+  const autoware_utils::MultiPolygon2d & multi_polygon,
+  visualization_msgs::msg::MarkerArray & marker_array, const size_t & trajectory_index,
+  const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory);
+
+/**
  * @brief create marker array from predicted object
+ * @details This function creates a marker array from a PredictedObjects object
+ * (initial_pose_with_covariance), draw the vehicle based on initial pose.
  * @param [in] objects PredictedObjects object
  * @param [in] ns namespace
  * @param [in] id id of the marker
@@ -109,6 +107,21 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   const int64_t id, const rclcpp::Time & now, const std_msgs::msg::ColorRGBA & color);
 
 /**
+ * @brief add predicted objects ego vehicle pose marker array from PredictedObjects to existing
+ * marker array
+ * @details This function creates a marker array from a PredictedObjects object (predicted_path),
+ * draw the vehicle based on predicted path ego vehicle pose.
+ * @param [in] marker_array marker array to store the markers
+ * @param [in] base_marker base marker to use for the markers
+ * @param [in] objects PredictedObjects object
+ * @param [in] ego_pose pose of the ego vehicle
+ */
+void create_predicted_objects_marker_array(
+  visualization_msgs::msg::MarkerArray & marker_array, visualization_msgs::msg::Marker base_marker,
+  const autoware_perception_msgs::msg::PredictedObjects & objects,
+  const geometry_msgs::msg::Pose & ego_pose);
+
+/**
  * @brief create marker array from stop obstacle point
  * @param [in] stamp time stamp of the marker
  * @param [in] stop_obstacle_point point of the stop obstacle
@@ -116,6 +129,23 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
  */
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const rclcpp::Time & stamp, const geometry_msgs::msg::Point & stop_obstacle_point);
+
+/**
+ * @brief create marker from Autoware Polygon2d
+ * @param [in] polygon Autoware Polygon2d
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @param [in] z z position of the marker
+ * @return marker of the Autoware Polygon2d
+ */
+visualization_msgs::msg::Marker create_autoware_geometry_marker(
+  const autoware_utils::Polygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 scale,
+  const std_msgs::msg::ColorRGBA & color, double z);
 
 /**
  * @brief create marker array from predicted object
@@ -157,7 +187,6 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
   const autoware_perception_msgs::msg::PredictedPath & predicted_path,
   const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns,
   const int32_t & id, const std_msgs::msg::ColorRGBA & color);
-
 /**
  * @brief create marker array from lanelet polygon (CompoundPolygon3d or ConstPolygon3d)
  * @param [in] polygon lanelet polygon
@@ -185,6 +214,18 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
   marker_array.markers.push_back(marker);
   return marker_array;
 }
+
+/**
+ * @brief insert lanelets marker from lanelets to marker array
+ * @param [in] lanelets lanelets to create markers from
+ * @param [in] debug_marker marker to store debug information
+ * @param [in] debug_marker_array marker array to store debug information
+ * @param [in] z z position of the marker
+ */
+void create_lanelets_marker_array(
+  const lanelet::ConstLanelets & lanelets, visualization_msgs::msg::Marker & marker,
+  visualization_msgs::msg::MarkerArray & marker_array, double z);
+
 }  // namespace autoware::experimental::marker_utils
 
 #endif  // AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
