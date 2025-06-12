@@ -128,6 +128,19 @@ void create_lanelets_marker_array(
   visualization_msgs::msg::MarkerArray & marker_array, double z);
 
 /**
+ * @brief insert marker array from lanelets
+ * @details This function creates a marker array from lanelets, draw the lanelets either as triangle
+ * marker or boundary as marker.
+ * @param [in] lanelets lanelets to create markers from
+ * @param [in] color color of the marker
+ * @param [in] marker_array marker array to store the markers
+ * @param [in] ns namespace of the marker
+ */
+void create_lanelets_marker_array(
+  const lanelet::ConstLanelets & lanelets, const std_msgs::msg::ColorRGBA & color,
+  visualization_msgs::msg::MarkerArray & marker_array, const std::string & ns = "");
+
+/**
  * @brief create marker array from predicted object
  * @details This function creates a marker array from a PredictedObjects object
  * (initial_pose_with_covariance), draw the vehicle based on initial pose.

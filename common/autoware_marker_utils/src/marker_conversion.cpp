@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <autoware/marker_utils/marker_conversion.hpp>
+#include <autoware_lanelet2_extension/visualization/visualization.hpp>
 #include <autoware_utils/geometry/boost_polygon_utils.hpp>
 #include <autoware_utils/geometry/geometry.hpp>
 #include <autoware_utils/ros/marker_helper.hpp>
@@ -400,4 +401,19 @@ void create_lanelets_marker_array(
     ++marker.id;
   }
 }
+
+void create_lanelets_marker_array(
+  const lanelet::ConstLanelets & lanelets, const std_msgs::msg::ColorRGBA & color,
+  visualization_msgs::msg::MarkerArray & marker_array, const std::string & ns)
+{
+  visualization_msgs::msg::MarkerArray lanelet_marker;
+  if (ns.empty()) {
+    lanelet_marker = lanelet::visualization::laneletsBoundaryAsMarkerArray(lanelets, color, false);
+  } else {
+    lanelet_marker = lanelet::visualization::laneletsAsTriangleMarkerArray(ns, lanelets, color);
+  }
+  marker_array.markers.insert(
+    marker_array.markers.end(), lanelet_marker.markers.begin(), lanelet_marker.markers.end());
+}
+
 }  // namespace autoware::experimental::marker_utils

@@ -488,6 +488,49 @@ TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
   EXPECT_DOUBLE_EQ(pts[3].z, 0.0);
 }
 
+// Test 17: create_autoware_geometry_marker_array with empty lanelet
+TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
+{
+  lanelet::ConstLanelets empty;
+  visualization_msgs::msg::MarkerArray markers;
+  markers.markers.push_back(create_default_marker(
+    header_.frame_id, now_, "end_lanelets", 2, visualization_msgs::msg::Marker::LINE_LIST,
+    create_marker_scale(0.2, 0.2, 0.2), color_));
+
+  autoware::experimental::marker_utils::create_lanelets_marker_array(empty, color_, markers, "foo");
+
+  ASSERT_EQ(markers.markers.size(), 1u);
+  EXPECT_EQ(markers.markers[0].ns, "end_lanelets");
+}
+
+// Test 18: create_autoware_geometry_marker_array with triangle lanelet
+TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
+{
+  using lanelet::ConstLanelet;
+  using lanelet::Lanelet;
+  using lanelet::LineString3d;
+  using lanelet::Point3d;
+
+  LineString3d lb{1, {Point3d{0, 0, 0}, Point3d{1, 0, 0}}};
+  LineString3d rb{2, {Point3d{1, 1, 0}, Point3d{0, 1, 0}}};
+  Lanelet raw{3, lb, rb};
+  ConstLanelet cl{raw};
+  lanelet::ConstLanelets lls{cl};
+
+  visualization_msgs::msg::MarkerArray markers;
+  markers.markers.push_back(create_default_marker(
+    header_.frame_id, now_, "goal_lanelets", 5, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(0.1, 0.1, 0.1), color_));
+
+  autoware::experimental::marker_utils::create_lanelets_marker_array(lls, color_, markers, "ns");
+
+  ASSERT_EQ(markers.markers.size(), 2u);
+  const auto & m = markers.markers.back();
+  auto poly = cl.polygon2d().basicPolygon();
+  EXPECT_EQ(m.points.size(), poly.size() + 2);
+  expect_point_eq(m.points.back(), poly.front().x(), poly.front().y(), 0.0);
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
