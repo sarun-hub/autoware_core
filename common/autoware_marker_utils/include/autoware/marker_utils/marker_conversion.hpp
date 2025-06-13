@@ -26,12 +26,148 @@
 #include <visualization_msgs/msg/marker_array.hpp>
 
 #include <lanelet2_core/Forward.h>
+#include <lanelet2_core/LaneletMap.h>
+#include <lanelet2_routing/Forward.h>
+#include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
+#include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
 
 #include <string>
 #include <vector>
 
 namespace autoware::experimental::marker_utils
 {
+// TODO: Apply these and refactor all types 
+// using visualization_msgs::msg::Marker;
+// using MarkerArray = visualization_msgs::msg::MarkerArray;
+// using std_msgs::msg::ColorRGBA;
+using autoware_utils::create_default_marker;
+using autoware_utils::create_marker_color;
+using autoware_utils::create_marker_position;
+using autoware_utils::create_marker_scale;
+
+/** 
+ * @brief create centroid point of lanelet's BasicPolygon3d
+ * @param [in] poly lanelet BasicPolygon3d
+ * @return BasicPoint3d which is centroid of polygon
+ */
+lanelet::BasicPoint3d get_centroid_point(const lanelet::BasicPolygon3d & poly);
+
+/**
+ * @brief convert point into ROS2 message
+ * @param [in] point lanelet BasicPoint3d (from get_centroid_point)
+ * @return geometry type Point (ROS2 message)
+ */
+geometry_msgs::msg::Point to_msg(const lanelet::BasicPoint3d & point);
+
+/**
+ * @brief create lanelet info (correspond) marker array
+ * @param [in] reg_elem regulatory element (in this case, only DetectionArea and NoStoppingArea)
+ * @param [in] now current time
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @param [in] marker_lifetime lifetime of the marker
+ * @return marker arrat of the correspond lanelet info
+ */
+
+template <typename T>
+struct always_false : std::false_type {};
+
+template <typename RegElemT>
+visualization_msgs::msg::MarkerArray create_lanelet_info_marker_array(
+  const RegElemT & reg_elem, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 & scale,
+  const std_msgs::msg::ColorRGBA & color, const double marker_lifetime)
+{
+  lanelet::ConstPolygons3d reg_elem_areas;
+  auto polygon_to_stop_line_marker_type = visualization_msgs::msg::Marker::LINE_LIST;
+  std::string ns_prefix;
+  boost::optional<lanelet::ConstLineString3d> stop_line;
+
+  // Check type of Regulatory Element
+  if constexpr (std::is_same_v<RegElemT, lanelet::autoware::DetectionArea>) {
+    reg_elem_areas = reg_elem.detectionAreas();
+    polygon_to_stop_line_marker_type = visualization_msgs::msg::Marker::LINE_LIST;
+    ns_prefix = "detection_area";
+    stop_line = reg_elem.stopLine();
+  } else if constexpr (std::is_same_v<RegElemT, lanelet::autoware::NoStoppingArea>) {
+    reg_elem_areas = reg_elem.noStoppingAreas();
+    polygon_to_stop_line_marker_type = visualization_msgs::msg::Marker::LINE_STRIP;
+    ns_prefix = "no_stopping_area";
+    stop_line = reg_elem.stopLine();
+  } else {
+    throw std::runtime_error("Unsupported regulatory element type");
+  }
+
+  visualization_msgs::msg::MarkerArray msg;
+
+  // ID
+  {
+    auto marker = create_default_marker(
+      "map", now, ns_prefix + "_id", static_cast<int32_t>(reg_elem.id()), visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
+      create_marker_scale(0.0, 0.0, 1.0), create_marker_color(1.0, 1.0, 1.0, 0.999));
+    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+
+    for (const auto & area : reg_elem_areas) {
+      const auto poly = area.basicPolygon();
+
+      marker.pose.position = to_msg(poly.front());
+      marker.pose.position.z += 2.0;
+      marker.text = std::to_string(reg_elem.id());
+
+      msg.markers.push_back(marker);
+    }
+  }
+  // Polygon
+  {
+    auto marker = create_default_marker(
+      "map", now, ns_prefix + "_polygon", static_cast<int32_t>(reg_elem.id()), visualization_msgs::msg::Marker::LINE_LIST,
+      scale, color);
+    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+
+    for (const auto & area : reg_elem_areas) {
+      const auto poly = area.basicPolygon();
+
+      for (size_t i = 0; i < poly.size(); ++i) {
+        const auto idx_front = i;
+        const auto idx_back = (i == poly.size() - 1) ? 0 : i + 1;
+
+        const auto & p_front = poly.at(idx_front);
+        const auto & p_back = poly.at(idx_back);
+
+        marker.points.push_back(to_msg(p_front));
+        marker.points.push_back(to_msg(p_back));
+      }
+
+      msg.markers.push_back(marker);
+    }
+  }
+
+  // Polygon to Stop Line 
+  // Set stop_line to be all optional (in detection_area, it's not optional.)
+  if (stop_line) {
+    const auto stop_line_center_point =
+      (stop_line->front().basicPoint() + stop_line->back().basicPoint()) / 2;
+
+    auto marker = create_default_marker(
+      "map", now, ns_prefix + "_correspondence", static_cast<int32_t>(reg_elem.id()),
+      polygon_to_stop_line_marker_type, scale, color);
+
+    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+
+    for (auto & area : reg_elem_areas) {
+      const auto poly = area.basicPolygon();
+      const auto centroid_point = get_centroid_point(poly);
+      for (size_t i = 0; i < poly.size(); ++i) {
+        marker.points.push_back(to_msg(centroid_point));
+        marker.points.push_back(to_msg(stop_line_center_point));
+      }
+    }
+
+    msg.markers.push_back(marker);
+  }
+
+  return msg;
+}
+
 /**
  * @brief create marker array from geometry polygon based on the marker type
  * @details if marker_type is LINE_LIST, the polygon is drawn as a line list
