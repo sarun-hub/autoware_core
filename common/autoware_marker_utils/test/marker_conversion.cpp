@@ -26,6 +26,9 @@
 
 #include <gtest/gtest.h>
 #include <lanelet2_core/primitives/CompoundPolygon.h>
+#include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
+#include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
+#include <autoware_lanelet2_extension/regulatory_elements/no_parking_area.hpp>
 #include <lanelet2_core/primitives/Lanelet.h>
 
 #include <filesystem>
@@ -208,7 +211,7 @@ TEST_F(MarkerConversionTest, CreateObjectsMakerArray)
   EXPECT_DOUBLE_EQ(m.pose.orientation.w, 1.0);
 }
 
-// Test 7: debug footprint draws full closed ring including first point at end
+// Test 6: debug footprint draws full closed ring including first point at end
 TEST_F(MarkerConversionTest, VisualizeDebugFootprint)
 {
   using autoware_utils::LinearRing2d;
@@ -229,7 +232,7 @@ TEST_F(MarkerConversionTest, VisualizeDebugFootprint)
   expect_point_eq(pts.back(), ring.front().x(), ring.front().y(), 0.0);
 }
 
-// Test 8: text marker from point
+// Test 7: text marker from point
 TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
 {
   geometry_msgs::msg::Point pt;
@@ -246,7 +249,7 @@ TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
   EXPECT_DOUBLE_EQ(m.pose.position.z, 5.0);  // 3 + 2 offset
 }
 
-// Test 9: create_path_with_lane_id_marker_array without text
+// Test 8: create_path_with_lane_id_marker_array without text
 TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayNoText)
 {
   autoware_internal_planning_msgs::msg::PathWithLaneId path;
@@ -265,7 +268,7 @@ TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayNoText)
   EXPECT_DOUBLE_EQ(m.pose.position.y, 0.0);
 }
 
-// Test 10: create_path_with_lane_id_marker_array with text
+// Test 9: create_path_with_lane_id_marker_array with text
 TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayWithText)
 {
   autoware_internal_planning_msgs::msg::PathWithLaneId path;
@@ -290,7 +293,7 @@ TEST_F(MarkerConversionTest, CreatePathWithLaneIdMarkerArrayWithText)
   EXPECT_TRUE(found_text);
 }
 
-// Test 11: create_vehicle_trajectory_point_marker_array
+// Test 10: create_vehicle_trajectory_point_marker_array
 TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
 {
   std::vector<autoware_planning_msgs::msg::TrajectoryPoint> traj(3);
@@ -312,7 +315,7 @@ TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
   }
 }
 
-// Test 12: create_predicted_path_marker_array - empty
+// Test 11: create_predicted_path_marker_array - empty
 TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayEmpty)
 {
   autoware_perception_msgs::msg::PredictedPath pp;
@@ -326,7 +329,7 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayEmpty)
   EXPECT_TRUE(arr.markers.empty());
 }
 
-// Test 13: create_predicted_path_marker_array - one element
+// Test 12: create_predicted_path_marker_array - one element
 TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
 {
   autoware_perception_msgs::msg::PredictedPath pp;
@@ -348,7 +351,7 @@ TEST_F(MarkerConversionTest, CreatePredictedPathMarkerArrayOne)
   EXPECT_EQ(m.points.size(), 5u);
 }
 
-// Test 14: one PredictedObject + one pose within range → one marker with >0 points
+// Test 13: one PredictedObject + one pose within range → one marker with >0 points
 TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
 {
   visualization_msgs::msg::MarkerArray arr;
@@ -388,7 +391,7 @@ TEST_F(MarkerConversionTest, CreatePredictedObjectsMarkerArrayOne)
   EXPECT_DOUBLE_EQ(m.points[1].y, 2.0);
 }
 
-// Test 15: one simple rectangular lanelet → one marker, closed ring
+// Test 14: one simple rectangular lanelet → one marker, closed ring
 TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
 {
   // build a 1×1 rectangular lanelet
@@ -424,7 +427,7 @@ TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
   EXPECT_DOUBLE_EQ(m_out.points.back().z, Z + 0.5);
 }
 
-// Test 16: create_autoware_geometry_marker_array with a MultiPolygon2d of two rings
+// Test 15: create_autoware_geometry_marker_array with a MultiPolygon2d of two rings
 TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
 {
   using autoware_utils::MultiPolygon2d;
@@ -488,7 +491,7 @@ TEST_F(MarkerConversionTest, CreateAutowareGeometryMarkerArrayMultiPolygon)
   EXPECT_DOUBLE_EQ(pts[3].z, 0.0);
 }
 
-// Test 17: create_autoware_geometry_marker_array with empty lanelet
+// Test 16: create_autoware_geometry_marker_array with empty lanelet
 TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
 {
   lanelet::ConstLanelets empty;
@@ -503,7 +506,7 @@ TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
   EXPECT_EQ(markers.markers[0].ns, "end_lanelets");
 }
 
-// Test 18: create_autoware_geometry_marker_array with triangle lanelet
+// Test 17: create_autoware_geometry_marker_array with triangle lanelet
 TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
 {
   using lanelet::ConstLanelet;
@@ -529,6 +532,184 @@ TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
   auto poly = cl.polygon2d().basicPolygon();
   EXPECT_EQ(m.points.size(), poly.size() + 2);
   expect_point_eq(m.points.back(), poly.front().x(), poly.front().y(), 0.0);
+}
+
+// TODO: Run number of test
+// Test xx: create_lanelet_info_marker_array - DetectionArea
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionArea)
+{
+  lanelet::Polygon3d detection_area;
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  lanelet::LineString3d reg_elem_stop_line;
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, 0.5));
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, -0.5));
+  
+  const auto detection_area_reg_elem = lanelet::autoware::DetectionArea::make(
+      lanelet::InvalId, {}, {detection_area}, reg_elem_stop_line);
+
+  const double marker_lifetime = 0.5;
+  
+  auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    (*detection_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+  );
+
+  // Should have 2 * polygon + 1 (always have stop_line)
+  const size_t expected_marker_count = (*detection_area_reg_elem).detectionAreas().size()*2 + 1;
+  EXPECT_EQ(arr.markers.size(),expected_marker_count);
+
+  // Check that all markers contain namespace no_stopping_area
+  for (const auto & marker : arr.markers){
+    EXPECT_NE(marker.ns.find("detection_area"), std::string::npos);
+  }
+}
+
+// Test xx: create_lanelet_info_marker_array - DetectionArea with Several Polygons
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionAreaSeveralPolygons)
+{
+  lanelet::Polygon3d detection_area;
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  detection_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  lanelet::LineString3d reg_elem_stop_line;
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, 0.5));
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, -0.5));
+  
+  const auto detection_area_reg_elem = lanelet::autoware::DetectionArea::make(
+      lanelet::InvalId, {}, {detection_area,detection_area,detection_area}, reg_elem_stop_line);
+
+  const double marker_lifetime = 0.5;
+  
+  auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    (*detection_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+  );
+
+  // Should have 2 * polygon + 1 (always have stop_line)
+  const size_t expected_marker_count = (*detection_area_reg_elem).detectionAreas().size()*2 + 1;
+  EXPECT_EQ(arr.markers.size(),expected_marker_count);
+
+  // Check that all markers contain namespace no_stopping_area
+  for (const auto & marker : arr.markers){
+    EXPECT_NE(marker.ns.find("detection_area"), std::string::npos);
+  }
+}
+
+
+// Test xx: create_lanelet_info_marker_array - NoStoppingArea with stop line
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopLine)
+{
+  lanelet::Polygon3d no_stopping_area;
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  lanelet::LineString3d reg_elem_stop_line;
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, 0.5));
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, -0.5));
+  
+  const auto no_stopping_area_reg_elem = lanelet::autoware::NoStoppingArea::make(
+      lanelet::InvalId, {}, {no_stopping_area}, reg_elem_stop_line);
+
+  const double marker_lifetime = 0.5;
+  
+  auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    (*no_stopping_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+  );
+
+  // Should have 2 * polygon + 1
+  const size_t expected_marker_count = (*no_stopping_area_reg_elem).noStoppingAreas().size()*2 + 1;
+  EXPECT_EQ(arr.markers.size(),expected_marker_count);
+
+  // Check that all markers contain namespace no_stopping_area
+  for (const auto & marker : arr.markers){
+    EXPECT_NE(marker.ns.find("no_stopping_area"), std::string::npos);
+  }
+}
+
+// Test xx: create_lanelet_info_marker_array - NoStoppingArea with stop line and several Polygons
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopLineSeveralPolygon)
+{
+  lanelet::Polygon3d no_stopping_area;
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  lanelet::LineString3d reg_elem_stop_line;
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, 0.5));
+  reg_elem_stop_line.push_back(lanelet::Point3d(lanelet::InvalId, 1.0, -0.5));
+  
+  const auto no_stopping_area_reg_elem = lanelet::autoware::NoStoppingArea::make(
+      lanelet::InvalId, {}, {no_stopping_area, no_stopping_area, no_stopping_area}, reg_elem_stop_line);
+
+  const double marker_lifetime = 0.5;
+  
+  auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    (*no_stopping_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+  );
+
+  // Should have 2 * polygon + 1
+  const size_t expected_marker_count = (*no_stopping_area_reg_elem).noStoppingAreas().size()*2 + 1;
+  EXPECT_EQ(arr.markers.size(),expected_marker_count);
+
+  // Check that all markers contain namespace no_stopping_area
+  for (const auto & marker : arr.markers){
+    EXPECT_NE(marker.ns.find("no_stopping_area"), std::string::npos);
+  }
+}
+
+// Test xx: create_lanelet_info_marker_array - NoStoppingArea without stop line
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithoutStopLine)
+{
+  lanelet::Polygon3d no_stopping_area;
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  no_stopping_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  const auto no_stopping_area_reg_elem_without_stop_line = lanelet::autoware::NoStoppingArea::make(
+      lanelet::InvalId, {}, {no_stopping_area}, {});
+
+  const double marker_lifetime = 0.5;
+  
+  auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    (*no_stopping_area_reg_elem_without_stop_line), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+  );
+
+  // Should have 2 * polygon 
+  const size_t expected_marker_count = (*no_stopping_area_reg_elem_without_stop_line).noStoppingAreas().size()*2;
+  EXPECT_EQ(arr.markers.size(),expected_marker_count);
+
+  // Check that all markers contain namespace no_stopping_area
+  for (const auto & marker : arr.markers){
+    EXPECT_NE(marker.ns.find("no_stopping_area"), std::string::npos);
+  }
+}
+// Test xx: create_lanelet_info_marker_array - OtherArea (NoParkingArea)
+TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayOtherArea){
+
+  lanelet::Polygon3d no_parking_area;
+  no_parking_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, -1.0));
+  no_parking_area.push_back(lanelet::Point3d(lanelet::InvalId, 3.0, 1.0));
+  no_parking_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, 1.0));
+  no_parking_area.push_back(lanelet::Point3d(lanelet::InvalId, 5.0, -1.0));
+
+  const double marker_lifetime = 0.5;
+
+
+  const auto no_parking_area_reg_elem = lanelet::autoware::NoParkingArea::make(
+    lanelet::InvalId, {}, {no_parking_area}
+  );
+  EXPECT_THROW(autoware::experimental::marker_utils::create_lanelet_info_marker_array(
+    *(no_parking_area_reg_elem),now_, 
+    geometry_msgs::msg::Vector3(), color_, marker_lifetime),std::runtime_error);
+
 }
 
 }  // namespace

@@ -43,6 +43,34 @@ using autoware_utils::create_default_marker;
 using autoware_utils::create_marker_color;
 using autoware_utils::create_marker_position;
 using autoware_utils::create_marker_scale;
+// TODO: Apply these and refactor all types 
+// using visualization_msgs::msg::Marker;
+// using MarkerArray = visualization_msgs::msg::MarkerArray;
+// using std_msgs::msg::ColorRGBA;
+
+// ===================== Helper Function ==================================
+
+lanelet::BasicPoint3d get_centroid_point(const lanelet::BasicPolygon3d & poly)
+{
+  lanelet::BasicPoint3d p_sum{0.0, 0.0, 0.0};
+  for (const auto & p : poly) {
+    p_sum += p;
+  }
+  return p_sum / poly.size();
+}
+
+geometry_msgs::msg::Point to_msg(const lanelet::BasicPoint3d & point)
+{
+  geometry_msgs::msg::Point msg;
+  msg.x = point.x();
+  msg.y = point.y();
+  msg.z = point.z();
+  return msg;
+}
+
+
+
+// ====================== Main Function ===================================
 
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Polygon & polygon, const std::string & frame_id,
