@@ -440,4 +440,37 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
   return marker_array;
 }
 
+visualization_msgs::msg::MarkerArray create_polygon_marker_array(
+  const geometry_msgs::msg::Polygon & polygon, const std::string & ns, const int64_t module_id,
+  const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale, const std_msgs::msg::ColorRGBA & color)
+{ 
+  color.a = 0.8;  
+  visualization_msgs::msg::MarkerArray msg;
+  {
+    auto marker = create_default_marker(
+      "map", now, ns, static_cast<int32_t>(module_id), visualization_msgs::msg::Marker::LINE_STRIP,
+      scale, color);
+      
+    marker.lifetime = rclcpp::Duration::from_seconds(0.3);
+
+    if (!polygon.points.empty()) {
+    marker.points.reserve(polygon.points.size() + 1);
+    }
+
+    for (const auto & p : polygon.points) {
+      geometry_msgs::msg::Point point;
+      point.x = p.x;
+      point.y = p.y;
+      point.z = p.z;
+      marker.points.push_back(point);
+    }
+
+    if (!marker.points.empty()) {
+      marker.points.push_back(marker.points.front());
+    }
+    msg.markers.push_back(marker);
+  }
+  return msg;
+}
+
 }  // namespace autoware::experimental::marker_utils
