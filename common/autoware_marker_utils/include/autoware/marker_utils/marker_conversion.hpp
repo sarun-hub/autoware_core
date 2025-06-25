@@ -375,6 +375,11 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
   marker_array.markers.push_back(marker);
   return marker_array;
 }
+
+visualization_msgs::msg::MarkerArray create_polygon_marker_array(
+  const geometry_msgs::msg::Polygon & polygon, const std::string & ns, const int64_t module_id,
+  const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale, const std_msgs::msg::ColorRGBA & color);
+  
 }  // namespace autoware::experimental::marker_utils
 
 #endif  // AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
