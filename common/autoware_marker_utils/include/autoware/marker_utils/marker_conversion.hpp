@@ -318,7 +318,7 @@ visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
  */
 visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const rclcpp::Time & stamp,
-  const std::string & ns, const int32_t id, const std_msgs::msg::ColorRGBA & color);
+  const std::string & ns, const int64_t id, const std_msgs::msg::ColorRGBA & color);
 
 /**
  * @brief create predicted path marker array from PredictedPath
@@ -347,7 +347,7 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
  */
 visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
   const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
-  const int32_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
+  const int64_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, const bool with_text);
 
 /**

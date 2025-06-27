@@ -281,7 +281,7 @@ visualization_msgs::msg::Marker create_autoware_geometry_marker(
 
 visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const rclcpp::Time & stamp,
-  const std::string & ns, const int32_t id, const std_msgs::msg::ColorRGBA & color)
+  const std::string & ns, const int64_t id, const std_msgs::msg::ColorRGBA & color)
 {
   visualization_msgs::msg::MarkerArray marker_array;
 
@@ -290,10 +290,11 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
     color);
   // previous set value = 1.0
   marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  int32_t uid = bitShift(id);
 
   for (size_t i = 0; i < objects.objects.size(); ++i) {
     const auto & object = objects.objects.at(i);
-    marker.id = static_cast<int>((id << (sizeof(int32_t) * 8 / 2)) + static_cast<int32_t>(i));
+    marker.id = static_cast<int>(uid + static_cast<int32_t>(i));
     marker.pose = object.kinematics.initial_pose_with_covariance.pose;
     marker_array.markers.push_back(marker);
   }
@@ -401,10 +402,10 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
 
 visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
   const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
-  const int32_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
+  const int64_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
   const std_msgs::msg::ColorRGBA & color, const bool with_text)
 {
-  auto uid = id << (sizeof(int32_t) * 8 / 2);
+  int32_t uid = bitShift(id);
   int32_t idx = 0;
   int32_t i = 0;
   visualization_msgs::msg::MarkerArray msg;
