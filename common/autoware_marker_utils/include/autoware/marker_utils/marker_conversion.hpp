@@ -24,6 +24,8 @@
 #include <autoware_planning_msgs/msg/trajectory_point.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+#include <autoware_utils_visualization/marker_helper.hpp>
+
 
 #include <lanelet2_core/Forward.h>
 #include <lanelet2_core/LaneletMap.h>
@@ -40,10 +42,11 @@ namespace autoware::experimental::marker_utils
 // using visualization_msgs::msg::Marker;
 // using MarkerArray = visualization_msgs::msg::MarkerArray;
 // using std_msgs::msg::ColorRGBA;
-using autoware_utils::create_default_marker;
-using autoware_utils::create_marker_color;
-using autoware_utils::create_marker_position;
-using autoware_utils::create_marker_scale;
+using autoware_utils_visualization::create_default_marker;
+using autoware_utils_visualization::create_marker_color;
+using autoware_utils_visualization::create_marker_position;
+using autoware_utils_visualization::create_marker_scale;
+double marker_lifetime =  autoware_utils_visualization::MARKER_LIFETIME;
 
 /** 
  * @brief create centroid point of lanelet's BasicPolygon3d
@@ -356,11 +359,6 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, const std_msgs::msg::ColorRGBA & color);
 
-
-visualization_msgs::msg::MarkerArray create_polygon_marker_array(
-  const geometry_msgs::msg::Polygon & polygon, const std::string & ns, const int64_t module_id,
-  const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale, const std_msgs::msg::ColorRGBA & color);
-  
 }  // namespace autoware::experimental::marker_utils
 
 #endif  // AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
