@@ -256,6 +256,23 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
 
 /**
+ * @brief create marker array from stop obstacle point
+ * @param [in] stop_obstacle_point point of the stop obstacle
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @param [in] separate require to separate point into several markers or not
+ * @return marker array of the stop obstacle point
+ */
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+  const std::vector<geometry_msgs::msg::Point> & points, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id,
+  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const bool & separate);
+
+/**
  * @brief create marker from Autoware Polygon2d
  * @param [in] polygon Autoware Polygon2d
  * @param [in] stamp time stamp of the marker

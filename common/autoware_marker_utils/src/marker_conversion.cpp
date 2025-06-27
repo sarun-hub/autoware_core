@@ -75,6 +75,11 @@ void check_marker_type_line(uint32_t marker_type){
   }
 }
 
+inline int64_t bitShift(int64_t original_id)
+{
+  return original_id << (sizeof(int32_t) * 8 / 2);
+}
+
 // ====================== Main Function ===================================
 
 visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
@@ -177,6 +182,37 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
 
   marker.text = "!";
   marker_array.markers.push_back(marker);
+  return marker_array;
+}
+
+visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+  const std::vector<geometry_msgs::msg::Point> & points, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id, 
+  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const bool & separate)
+{
+  visualization_msgs::msg::MarkerArray marker_array;
+  auto marker = create_default_marker("map", stamp, ns, id, visualization_msgs::msg::Marker::SPHERE, scale, color);
+
+  // previous set value = 0.3
+  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  
+  if (separate) {
+    // Put each point to each marker
+    for (size_t i = 0; i < points.size(); ++i) {
+      marker.id = static_cast<int32_t>(i + bitShift(id));
+      marker.pose.position = points.at(i);
+      marker_array.markers.push_back(marker);
+    }
+  } else {
+    // Put all points in one marker
+    for (const auto & point : points) {
+      marker.points.push_back(point);
+    }
+    marker_array.markers.push_back(marker);
+  }
+  
+
   return marker_array;
 }
 
