@@ -15,7 +15,10 @@
 #ifndef AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 #define AUTOWARE__MARKER_UTILS__MARKER_CONVERSION_HPP_
 
+#include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
+#include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
 #include <autoware_utils_geometry/geometry.hpp>
+#include <autoware_utils_visualization/marker_helper.hpp>
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 #include <rclcpp/time.hpp>
 
@@ -24,14 +27,10 @@
 #include <autoware_planning_msgs/msg/trajectory_point.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
-#include <autoware_utils_visualization/marker_helper.hpp>
-
 
 #include <lanelet2_core/Forward.h>
 #include <lanelet2_core/LaneletMap.h>
 #include <lanelet2_routing/Forward.h>
-#include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
-#include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
 
 #include <string>
 #include <vector>
@@ -40,20 +39,20 @@ namespace autoware::experimental::marker_utils
 {
 // shorten type
 using geometry_msgs::msg::Point;
+using geometry_msgs::msg::Vector3;
+using std_msgs::msg::ColorRGBA;
 using visualization_msgs::msg::Marker;
 using visualization_msgs::msg::MarkerArray;
-using std_msgs::msg::ColorRGBA;
-using geometry_msgs::msg::Vector3;
 
 using autoware_utils_visualization::create_default_marker;
 using autoware_utils_visualization::create_marker_color;
 using autoware_utils_visualization::create_marker_position;
 using autoware_utils_visualization::create_marker_scale;
-double marker_lifetime =  autoware_utils_visualization::MARKER_LIFETIME;
+double marker_lifetime = autoware_utils_visualization::MARKER_LIFETIME;
 
 // ===================== Helper Function ==================================
 
-/** 
+/**
  * @brief create centroid point of lanelet's BasicPolygon3d
  * @param [in] poly lanelet BasicPolygon3d
  * @return BasicPoint3d which is centroid of polygon
@@ -78,7 +77,9 @@ Point to_msg(const lanelet::BasicPoint3d & point);
  */
 
 template <typename T>
-struct always_false : std::false_type {};
+struct always_false : std::false_type
+{
+};
 
 template <typename RegElemT>
 MarkerArray create_lanelet_info_marker_array(
@@ -110,8 +111,9 @@ MarkerArray create_lanelet_info_marker_array(
   // ID
   {
     auto marker = create_default_marker(
-      "map", now, ns_prefix + "_id", static_cast<int32_t>(reg_elem.id()), visualization_msgs::msg::Marker::TEXT_VIEW_FACING,
-      create_marker_scale(0.0, 0.0, 1.0), create_marker_color(1.0, 1.0, 1.0, 0.999));
+      "map", now, ns_prefix + "_id", static_cast<int32_t>(reg_elem.id()),
+      visualization_msgs::msg::Marker::TEXT_VIEW_FACING, create_marker_scale(0.0, 0.0, 1.0),
+      create_marker_color(1.0, 1.0, 1.0, 0.999));
     marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
 
     for (const auto & area : reg_elem_areas) {
@@ -127,8 +129,8 @@ MarkerArray create_lanelet_info_marker_array(
   // Polygon
   {
     auto marker = create_default_marker(
-      "map", now, ns_prefix + "_polygon", static_cast<int32_t>(reg_elem.id()), visualization_msgs::msg::Marker::LINE_LIST,
-      scale, color);
+      "map", now, ns_prefix + "_polygon", static_cast<int32_t>(reg_elem.id()),
+      visualization_msgs::msg::Marker::LINE_LIST, scale, color);
     marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
 
     for (const auto & area : reg_elem_areas) {
@@ -149,7 +151,7 @@ MarkerArray create_lanelet_info_marker_array(
     }
   }
 
-  // Polygon to Stop Line 
+  // Polygon to Stop Line
   // Set stop_line to be all optional (in detection_area, it's not optional.)
   if (stop_line) {
     const auto stop_line_center_point =
@@ -190,9 +192,8 @@ MarkerArray create_lanelet_info_marker_array(
  */
 Marker create_autoware_geometry_marker(
   const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color,
-  double z = 0.0);
+  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color, double z = 0.0);
 
 /**
  * @brief Convert Eigen::Vector3d to geometry_msgs::msg::Point32
@@ -229,8 +230,7 @@ Marker make_linestring_marker(const autoware_utils::LineString2d & ls, const dou
  */
 MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Polygon & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const Vector3 & scale,
-  const ColorRGBA & color);
+  int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief create footprint from LinearRing2d (used mainly for goal_footprint)
@@ -244,8 +244,8 @@ MarkerArray create_autoware_geometry_marker_array(
  */
 MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::LinearRing2d & ring, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color);
+  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color);
 
 /**
  * @brief create marker array from boost MultiPolygon2d (Pull over area)
@@ -261,9 +261,8 @@ MarkerArray create_autoware_geometry_marker_array(
  */
 MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color,
-  double z = 0.0);
+  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color, double z = 0.0);
 
 /**
  * @brief return marker array from centroid of MultiPolygon2d and trajectory point
@@ -295,8 +294,8 @@ MarkerArray create_autoware_geometry_marker_array(
  */
 MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Point & stop_obstacle_point, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color);
+  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color);
 
 /**
  * @brief create marker array from the vector of points
@@ -311,8 +310,7 @@ MarkerArray create_autoware_geometry_marker_array(
  */
 MarkerArray create_autoware_geometry_marker_array(
   const std::vector<geometry_msgs::msg::Point> & points, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id,
-  const Vector3 & scale, const ColorRGBA & color,
+  const std::string & ns, int32_t id, const Vector3 & scale, const ColorRGBA & color,
   const bool & separate);
 
 /**
@@ -340,8 +338,8 @@ MarkerArray create_autoware_geometry_marker_array(
  * @return marker array of yaw line marker
  */
 MarkerArray create_autoware_geometry_marker_array(
-  const geometry_msgs::msg::Pose & pose, const rclcpp::Time & stamp,
-  const std::string & ns, const int64_t id, const Vector3 & scale, const ColorRGBA & color);
+  const geometry_msgs::msg::Pose & pose, const rclcpp::Time & stamp, const std::string & ns,
+  const int64_t id, const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief return marker array from lanelets
@@ -353,9 +351,8 @@ MarkerArray create_autoware_geometry_marker_array(
  * @return marker array of the lanelets
  */
 MarkerArray create_lanelets_marker_array(
-  const lanelet::ConstLanelets & lanelets, const std::string & ns,
-  const Vector3 scale, const ColorRGBA & color,
-  const double z = 0.0, const bool planning = false);
+  const lanelet::ConstLanelets & lanelets, const std::string & ns, const Vector3 scale,
+  const ColorRGBA & color, const double z = 0.0, const bool planning = false);
 
 /**
  * @brief create marker array from predicted object
@@ -399,8 +396,8 @@ MarkerArray create_predicted_path_marker_array(
  */
 MarkerArray create_path_with_lane_id_marker_array(
   const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
-  const int64_t id, const rclcpp::Time & now, const Vector3 scale,
-  const ColorRGBA & color, const bool with_text);
+  const int64_t id, const rclcpp::Time & now, const Vector3 scale, const ColorRGBA & color,
+  const bool with_text);
 
 /**
  * @brief create a vehicle trajectory point marker array object
@@ -439,9 +436,9 @@ MarkerArray create_lanelet_polygon_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the lanelet BasicPolygons2d (vector of BasicPolygon2d)
  */
-MarkerArray create_lanelet_polygon_marker_array(const lanelet::BasicPolygons2d & polygons,
-const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
-const Vector3 & scale, const ColorRGBA & color, double z = 0.0);
+MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z = 0.0);
 
 }  // namespace autoware::experimental::marker_utils
 
