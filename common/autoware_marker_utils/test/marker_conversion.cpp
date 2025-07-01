@@ -369,7 +369,7 @@ TEST_F(MarkerConversionTest, CreateLaneletsMarkerArrayOne)
 
   const double Z = 1.0;
   const auto & arr = autoware::experimental::marker_utils::create_lanelets_marker_array(
-    lls, "book", create_marker_color(0.0, 1.0, 0.0, 1.0), create_marker_scale(0.1, 0.1, 0.1), Z);
+    lls, "book", create_marker_scale(0.1, 0.1, 0.1), create_marker_color(0.0, 1.0, 0.0, 1.0), Z);
 
   ASSERT_EQ(arr.markers.size(), 1u);
   const auto & m_out = arr.markers[0];
@@ -450,7 +450,7 @@ TEST_F(MarkerConversionTest, EmptyLaneletsCustomNS)
 {
   lanelet::ConstLanelets empty;
   const auto & markers = autoware::experimental::marker_utils::create_lanelets_marker_array(
-    empty, "foo", color_, create_marker_scale(0.1, 0.1, 0.1), 0, true);
+    empty, "foo",create_marker_scale(0.1, 0.1, 0.1), color_, 0, true);
 
   ASSERT_EQ(markers.markers.size(), 0u);
 }
@@ -470,7 +470,7 @@ TEST_F(MarkerConversionTest, SingleLaneletClosedRing)
   lanelet::ConstLanelets lls{cl};
 
   const auto & markers = autoware::experimental::marker_utils::create_lanelets_marker_array(
-    lls, "ns", color_, create_marker_scale(0.1, 0.1, 0.1), 0, true);
+    lls, "ns", create_marker_scale(0.1, 0.1, 0.1), color_, 0, true);
 
   ASSERT_EQ(markers.markers.size(), 1u);
   const auto & m = markers.markers.back();
@@ -513,8 +513,7 @@ TEST_F(MarkerConversionTest, CreateLaneletPolygonMarkerArray)
   EXPECT_EQ(marker.type, visualization_msgs::msg::Marker::LINE_STRIP);
 }
 
-// TODO: Run number of test
-// Test xx: create_lanelet_info_marker_array - DetectionArea
+// Test 18: create_lanelet_info_marker_array - DetectionArea
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionArea)
 {
   lanelet::Polygon3d detection_area;
@@ -546,7 +545,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionArea)
   }
 }
 
-// Test xx: create_lanelet_info_marker_array - DetectionArea with Several Polygons
+// Test 19: create_lanelet_info_marker_array - DetectionArea with Several Polygons
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionAreaSeveralPolygons)
 {
   lanelet::Polygon3d detection_area;
@@ -578,7 +577,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionAreaSeveralPol
   }
 }
 
-// Test xx: create_lanelet_info_marker_array - NoStoppingArea with stop line
+// Test 20: create_lanelet_info_marker_array - NoStoppingArea with stop line
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopLine)
 {
   lanelet::Polygon3d no_stopping_area;
@@ -610,7 +609,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopL
   }
 }
 
-// Test xx: create_lanelet_info_marker_array - NoStoppingArea with stop line and several Polygons
+// Test 21: create_lanelet_info_marker_array - NoStoppingArea with stop line and several Polygons
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopLineSeveralPolygon)
 {
   lanelet::Polygon3d no_stopping_area;
@@ -642,7 +641,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopL
   }
 }
 
-// Test xx: create_lanelet_info_marker_array - NoStoppingArea without stop line
+// Test 22: create_lanelet_info_marker_array - NoStoppingArea without stop line
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithoutStopLine)
 {
   lanelet::Polygon3d no_stopping_area;
@@ -669,7 +668,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithoutSt
     EXPECT_NE(marker.ns.find("no_stopping_area"), std::string::npos);
   }
 }
-// Test xx: create_lanelet_info_marker_array - OtherArea (NoParkingArea)
+// Test 23: create_lanelet_info_marker_array - OtherArea (NoParkingArea)
 TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayOtherArea){
 
   lanelet::Polygon3d no_parking_area;

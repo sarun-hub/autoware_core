@@ -315,7 +315,6 @@ MarkerArray create_lanelets_marker_array(
  * @param [in] stamp current time
  * @param [in] ns namespace
  * @param [in] id id of the marker
- * @param [in] scale scale of the marker
  * @param [in] color color of the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */

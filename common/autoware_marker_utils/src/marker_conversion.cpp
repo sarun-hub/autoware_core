@@ -438,7 +438,7 @@ MarkerArray create_path_with_lane_id_marker_array(
 
 MarkerArray create_lanelets_marker_array(
   const lanelet::ConstLanelets & lanelets, const std::string & ns,
-  const ColorRGBA & color, const Vector3 scale, const double z,
+  const Vector3 scale, const ColorRGBA & color, const double z,
   const bool planning)
 {
   if (lanelets.empty()) {
