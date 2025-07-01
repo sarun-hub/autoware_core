@@ -38,10 +38,13 @@
 
 namespace autoware::experimental::marker_utils
 {
-// TODO: Apply these and refactor all types 
-// using visualization_msgs::msg::Marker;
-// using MarkerArray = visualization_msgs::msg::MarkerArray;
-// using std_msgs::msg::ColorRGBA;
+// shorten type
+using geometry_msgs::msg::Point;
+using visualization_msgs::msg::Marker;
+using visualization_msgs::msg::MarkerArray;
+using std_msgs::msg::ColorRGBA;
+using geometry_msgs::msg::Vector3;
+
 using autoware_utils_visualization::create_default_marker;
 using autoware_utils_visualization::create_marker_color;
 using autoware_utils_visualization::create_marker_position;
@@ -60,7 +63,7 @@ lanelet::BasicPoint3d get_centroid_point(const lanelet::BasicPolygon3d & poly);
  * @param [in] point lanelet BasicPoint3d (from get_centroid_point)
  * @return geometry type Point (ROS2 message)
  */
-geometry_msgs::msg::Point to_msg(const lanelet::BasicPoint3d & point);
+Point to_msg(const lanelet::BasicPoint3d & point);
 
 /**
  * @brief create lanelet info (correspond) marker array
@@ -76,9 +79,9 @@ template <typename T>
 struct always_false : std::false_type {};
 
 template <typename RegElemT>
-visualization_msgs::msg::MarkerArray create_lanelet_info_marker_array(
-  const RegElemT & reg_elem, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 & scale,
-  const std_msgs::msg::ColorRGBA & color, const double marker_lifetime)
+MarkerArray create_lanelet_info_marker_array(
+  const RegElemT & reg_elem, const rclcpp::Time & now, const Vector3 & scale,
+  const ColorRGBA & color, const double marker_lifetime)
 {
   lanelet::ConstPolygons3d reg_elem_areas;
   auto polygon_to_stop_line_marker_type = visualization_msgs::msg::Marker::LINE_LIST;
@@ -100,7 +103,7 @@ visualization_msgs::msg::MarkerArray create_lanelet_info_marker_array(
     throw std::runtime_error("Unsupported regulatory element type");
   }
 
-  visualization_msgs::msg::MarkerArray msg;
+  MarkerArray msg;
 
   // ID
   {
@@ -184,10 +187,10 @@ visualization_msgs::msg::MarkerArray create_lanelet_info_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the geometry polygon
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Polygon & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const geometry_msgs::msg::Vector3 & scale,
-  const std_msgs::msg::ColorRGBA & color);
+  int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color);
 
 /**
  * @brief create footprint from LinearRing2d (used mainly for goal_footprint)
@@ -199,10 +202,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] scale scale of the marker
  * @return marker array of the boost LinearRing2d
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::LinearRing2d & ring, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
+  const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief create marker array from boost MultiPolygon2d (Pull over area)
@@ -216,10 +219,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] z z position of the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const Vector3 & scale, const ColorRGBA & color,
   double z = 0.0);
 
 /**
@@ -233,11 +236,11 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::MultiPolygon2d & multi_polygon, const size_t & trajectory_index,
   const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory,
   const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
+  const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief create marker array from stop obstacle point
@@ -250,10 +253,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the stop obstacle point
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Point & stop_obstacle_point, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
+  const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief create marker array from stop obstacle point
@@ -266,10 +269,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] separate require to separate point into several markers or not
  * @return marker array of the stop obstacle point
  */
-visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
+MarkerArray create_autoware_geometry_marker_array(
   const std::vector<geometry_msgs::msg::Point> & points, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const Vector3 & scale, const ColorRGBA & color,
   const bool & separate);
 
 /**
@@ -284,10 +287,10 @@ visualization_msgs::msg::MarkerArray create_autoware_geometry_marker_array(
  * @param [in] z z position of the marker
  * @return marker of the Autoware Polygon2d
  */
-visualization_msgs::msg::Marker create_autoware_geometry_marker(
+Marker create_autoware_geometry_marker(
   const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const Vector3 & scale, const ColorRGBA & color,
   double z = 0.0);
 
 /**
@@ -299,9 +302,9 @@ visualization_msgs::msg::Marker create_autoware_geometry_marker(
  * @param [in] ns namespace of the marker
  * @return marker array of the lanelets
  */
-visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
+MarkerArray create_lanelets_marker_array(
   const lanelet::ConstLanelets & lanelets, const std::string & ns,
-  const std_msgs::msg::ColorRGBA & color, const geometry_msgs::msg::Vector3 scale,
+  const ColorRGBA & color, const Vector3 scale,
   const double z = 0.0, const bool planning = false);
 
 /**
@@ -316,9 +319,9 @@ visualization_msgs::msg::MarkerArray create_lanelets_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
-visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
+MarkerArray create_predicted_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const rclcpp::Time & stamp,
-  const std::string & ns, const int64_t id, const std_msgs::msg::ColorRGBA & color);
+  const std::string & ns, const int64_t id, const ColorRGBA & color);
 
 /**
  * @brief create predicted path marker array from PredictedPath
@@ -329,10 +332,10 @@ visualization_msgs::msg::MarkerArray create_predicted_objects_marker_array(
  * @param [in] color color of the marker
  * @return marker array of the predicted path
  */
-visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
+MarkerArray create_predicted_path_marker_array(
   const autoware_perception_msgs::msg::PredictedPath & predicted_path,
   const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns,
-  const int32_t & id, const std_msgs::msg::ColorRGBA & color);
+  const int32_t & id, const ColorRGBA & color);
 
 /**
  * @brief create marker array from predicted object (tier4 msg or internal planning msg)
@@ -345,10 +348,10 @@ visualization_msgs::msg::MarkerArray create_predicted_path_marker_array(
  * @param [in] with_text if true, add text to the marker
  * @return marker array of the boost MultiPolygon2d (Pull over area)
  */
-visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
+MarkerArray create_path_with_lane_id_marker_array(
   const autoware_internal_planning_msgs::msg::PathWithLaneId & path, const std::string & ns,
-  const int64_t id, const rclcpp::Time & now, const geometry_msgs::msg::Vector3 scale,
-  const std_msgs::msg::ColorRGBA & color, const bool with_text);
+  const int64_t id, const rclcpp::Time & now, const Vector3 scale,
+  const ColorRGBA & color, const bool with_text);
 
 /**
  * @brief create a vehicle trajectory point marker array object
@@ -358,7 +361,7 @@ visualization_msgs::msg::MarkerArray create_path_with_lane_id_marker_array(
  * @param [in] id id of the marker
  * @return visualization_msgs::msg::MarkerArray
  */
-visualization_msgs::msg::MarkerArray create_vehicle_trajectory_point_marker_array(
+MarkerArray create_vehicle_trajectory_point_marker_array(
   const std::vector<autoware_planning_msgs::msg::TrajectoryPoint> & mpt_traj,
   const autoware::vehicle_info_utils::VehicleInfo & vehicle_info, const std::string & ns,
   const int32_t id);
@@ -372,9 +375,9 @@ visualization_msgs::msg::MarkerArray create_vehicle_trajectory_point_marker_arra
  * @param [in] color color of the marker
  * @return marker array of the lanelet polygon
  */
-visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
+MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, const std_msgs::msg::ColorRGBA & color);
+  int32_t id, const ColorRGBA & color);
 
 }  // namespace autoware::experimental::marker_utils
 
