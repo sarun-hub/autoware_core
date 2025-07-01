@@ -51,6 +51,8 @@ using autoware_utils_visualization::create_marker_position;
 using autoware_utils_visualization::create_marker_scale;
 double marker_lifetime =  autoware_utils_visualization::MARKER_LIFETIME;
 
+// ===================== Helper Function ==================================
+
 /** 
  * @brief create centroid point of lanelet's BasicPolygon3d
  * @param [in] poly lanelet BasicPolygon3d
@@ -175,6 +177,44 @@ MarkerArray create_lanelet_info_marker_array(
 }
 
 /**
+ * @brief create marker from Autoware Polygon2d
+ * @param [in] polygon Autoware Polygon2d
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @param [in] z z position of the marker
+ * @return marker of the Autoware Polygon2d
+ */
+Marker create_autoware_geometry_marker(
+  const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id, uint32_t marker_type,
+  const Vector3 & scale, const ColorRGBA & color,
+  double z = 0.0);
+
+/**
+ * @brief Convert Eigen::Vector3d to geometry_msgs::msg::Point32
+ * @param [in] src input point
+ */
+geometry_msgs::msg::Point32 to_geom_msg_pt32(const Eigen::Vector3d & src);
+
+/**
+ * @brief Convert lanelet polygon (ConstPolygon3d) to geometry_msgs polygon
+ * @param [in] ll_poly input ConstPolygon3d polygon
+ */
+geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_poly);
+
+/**
+ * @brief Make a marker of LineString2d
+ * @param [in] ls LineString2d
+ */
+Marker make_linestring_marker(const autoware_utils::LineString2d & ls, const double z);
+
+// ====================== Main Function ===================================
+
+/**
  * @brief create marker array from geometry polygon based on the marker type
  * @details if marker_type is LINE_LIST, the polygon is drawn as a line list
  *          if marker_type is LINE_STRIP, the polygon is drawn as a line strip
@@ -259,8 +299,8 @@ MarkerArray create_autoware_geometry_marker_array(
   const Vector3 & scale, const ColorRGBA & color);
 
 /**
- * @brief create marker array from stop obstacle point
- * @param [in] stop_obstacle_point point of the stop obstacle
+ * @brief create marker array from the vector of points
+ * @param [in] points vector of points
  * @param [in] stamp time stamp of the marker
  * @param [in] ns namespace
  * @param [in] id id of the marker
@@ -276,22 +316,32 @@ MarkerArray create_autoware_geometry_marker_array(
   const bool & separate);
 
 /**
- * @brief create marker from Autoware Polygon2d
- * @param [in] polygon Autoware Polygon2d
+ * @brief create marker array with marker type ARROW from two points
+ * @param [in] point_start start point of the arrow
+ * @param [in] point_end end point of the arrow
  * @param [in] stamp time stamp of the marker
  * @param [in] ns namespace
  * @param [in] id id of the marker
- * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
+ * @param [in] color color of the marker
+ * @return marker array of ARROW marker
+ */
+MarkerArray create_autoware_geometry_marker_array(
+  const Point & point_start, const Point & point_end, const rclcpp::Time & stamp,
+  const std::string & ns, const int64_t id, const ColorRGBA & color);
+
+/**
+ * @brief create marker array from pose (drawing yaw line)
+ * @param [in] pose center of yaw line (pose)
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
  * @param [in] scale scale of the marker
  * @param [in] color color of the marker
- * @param [in] z z position of the marker
- * @return marker of the Autoware Polygon2d
+ * @return marker array of yaw line marker
  */
-Marker create_autoware_geometry_marker(
-  const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color,
-  double z = 0.0);
+MarkerArray create_autoware_geometry_marker_array(
+  const geometry_msgs::msg::Pose & pose, const rclcpp::Time & stamp,
+  const std::string & ns, const int64_t id, const Vector3 & scale, const ColorRGBA & color);
 
 /**
  * @brief return marker array from lanelets
@@ -304,7 +354,7 @@ Marker create_autoware_geometry_marker(
  */
 MarkerArray create_lanelets_marker_array(
   const lanelet::ConstLanelets & lanelets, const std::string & ns,
-  const ColorRGBA & color, const Vector3 scale,
+  const Vector3 scale, const ColorRGBA & color,
   const double z = 0.0, const bool planning = false);
 
 /**
@@ -377,6 +427,21 @@ MarkerArray create_vehicle_trajectory_point_marker_array(
 MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, const ColorRGBA & color);
+
+/**
+ * @brief create marker array from lanelet BasicPolygons2d (vector of BasicPolygon2d)
+ * @param [in] polygons lanelet BasicPolygons2d (vector of BasicPolygon2d)
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @return marker array of the lanelet BasicPolygons2d (vector of BasicPolygon2d)
+ */
+MarkerArray create_lanelet_polygon_marker_array(const lanelet::BasicPolygons2d & polygons,
+const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
+const Vector3 & scale, const ColorRGBA & color, double z = 0.0);
 
 }  // namespace autoware::experimental::marker_utils
 

@@ -64,6 +64,30 @@ Point to_msg(const lanelet::BasicPoint3d & point)
   return msg;
 }
 
+geometry_msgs::msg::Point32 to_geom_msg_pt32(const Eigen::Vector3d & src)
+{
+  geometry_msgs::msg::Point32 dst;
+
+  dst.x = static_cast<float>(src.x());
+  dst.y = static_cast<float>(src.y());
+  dst.z = static_cast<float>(src.z());
+
+  return dst;
+}
+
+geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_poly)
+{ 
+  geometry_msgs::msg::Polygon geom_poly;
+  geom_poly.points.clear();
+  geom_poly.points.reserve(ll_poly.size());
+  for (const auto & ll_pt : ll_poly) {
+    geometry_msgs::msg::Point32 geom_pt32;
+    geom_pt32 = to_geom_msg_pt32(ll_pt.basicPoint());
+    geom_poly.points.push_back(geom_pt32);
+  }
+  return geom_poly;
+}
+
 void check_marker_type_line(uint32_t marker_type){
   if (marker_type != Marker::LINE_STRIP && 
     marker_type != Marker::LINE_LIST){
@@ -74,6 +98,93 @@ void check_marker_type_line(uint32_t marker_type){
 inline int64_t bitShift(int64_t original_id)
 {
   return original_id << (sizeof(int32_t) * 8 / 2);
+}
+
+Marker create_autoware_geometry_marker(
+  const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
+  const std::string & ns, int32_t id, uint32_t marker_type,
+  const Vector3 & scale, const ColorRGBA & color, double z)
+{
+  check_marker_type_line(marker_type);
+  Marker marker =
+    create_default_marker("map", stamp, ns, id, marker_type, scale, color);
+
+  if (marker_type == Marker::LINE_LIST) {
+    for (size_t i = 0; i < polygon.outer().size(); ++i) {
+      const auto & cur = polygon.outer().at(i);
+      const auto & nxt = polygon.outer().at((i + 1) % polygon.outer().size());
+      Point p1, p2;
+      p1.x = cur.x();
+      p1.y = cur.y();
+      p1.z = z;
+      p2.x = nxt.x();
+      p2.y = nxt.y();
+      p2.z = z;
+      marker.points.push_back(p1);
+      marker.points.push_back(p2);
+    }
+  } else if (marker_type == Marker::LINE_STRIP){
+    marker.pose.orientation = autoware_utils_visualization::create_marker_orientation(0, 0, 0, 1.0);
+    for (const auto & p : polygon.outer()) {
+      Point pt;
+      pt.x = p.x();
+      pt.y = p.y();
+      pt.z = z;
+      marker.points.push_back(pt);
+    }
+  }
+  return marker;
+}
+
+static void create_vehicle_footprint_marker(
+  Marker & marker, const geometry_msgs::msg::Pose & pose,
+  const double & base_to_right, const double & base_to_left, const double & base_to_front,
+  const double & base_to_rear)
+{
+  marker.points.push_back(
+    autoware_utils_geometry::calc_offset_pose(pose, base_to_front, base_to_left, 0.0).position);
+  marker.points.push_back(
+    autoware_utils_geometry::calc_offset_pose(pose, base_to_front, -base_to_right, 0.0).position);
+  marker.points.push_back(
+    autoware_utils_geometry::calc_offset_pose(pose, -base_to_rear, -base_to_right, 0.0).position);
+  marker.points.push_back(
+    autoware_utils_geometry::calc_offset_pose(pose, -base_to_rear, base_to_left, 0.0).position);
+  marker.points.push_back(marker.points.front());
+}
+
+static std::vector<double> calc_path_arc_length_array(
+  const autoware_internal_planning_msgs::msg::PathWithLaneId & path)
+{
+  std::vector<double> out;
+  if (path.points.empty()) return out;
+
+  out.reserve(path.points.size());
+  double sum = 0.0;
+  out.push_back(sum);
+
+  for (size_t i = 1; i < path.points.size(); ++i) {
+    sum += autoware_utils_geometry::calc_distance2d(
+      path.points.at(i).point, path.points.at(i - 1).point);
+    out.push_back(sum);
+  }
+  return out;
+}
+
+Marker make_linestring_marker(const autoware_utils::LineString2d & ls, const double z)
+{
+  Marker marker{};
+  marker.type = Marker::LINE_STRIP;
+  marker.scale.x = 0.1;
+  marker.color.a = 1.0;
+  marker.header.frame_id = "map";
+  for (const auto & point : ls) {
+    Point p;
+    p.x = point.x();
+    p.y = point.y();
+    p.z = z;
+    marker.points.push_back(p);
+  }
+  return marker;
 }
 
 // ====================== Main Function ===================================
@@ -99,7 +210,7 @@ MarkerArray create_autoware_geometry_marker_array(
     for (size_t i = 0; i < N; ++i) {
       const auto & cur = points[i];
       const auto & nxt = points[(i + 1) % N];
-      geometry_msgs::msg::Point p1, p2;
+      Point p1, p2;
       p1.x = cur.x;
       p1.y = cur.y;
       p1.z = cur.z;
@@ -112,7 +223,7 @@ MarkerArray create_autoware_geometry_marker_array(
   } else if (marker_type == Marker::LINE_STRIP){
     marker.points.reserve(N + 1);
     for (const auto & p : points) {
-      geometry_msgs::msg::Point point;
+      Point point;
       point.x = p.x;
       point.y = p.y;
       point.z = p.z;
@@ -159,14 +270,14 @@ MarkerArray create_autoware_geometry_marker_array(
     marker.points.push_back(trajectory[trajectory_index].pose.position);
     const auto centroid =
       boost::geometry::return_centroid<autoware_utils_geometry::Point2d>(polygon);
-    marker.points.push_back(geometry_msgs::msg::Point().set__x(centroid.x()).set__y(centroid.y()));
+    marker.points.push_back(Point().set__x(centroid.x()).set__y(centroid.y()));
   }
   marker_array.markers.push_back(marker);
   return marker_array;
 }
 
 MarkerArray create_autoware_geometry_marker_array(
-  const geometry_msgs::msg::Point & stop_obstacle_point, const rclcpp::Time & stamp,
+  const Point & stop_obstacle_point, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, uint32_t marker_type,
   const Vector3 & scale, const ColorRGBA & color)
 {
@@ -182,7 +293,7 @@ MarkerArray create_autoware_geometry_marker_array(
 }
 
 MarkerArray create_autoware_geometry_marker_array(
-  const std::vector<geometry_msgs::msg::Point> & points, const rclcpp::Time & stamp,
+  const std::vector<Point> & points, const rclcpp::Time & stamp,
   const std::string & ns, int32_t id, 
   const Vector3 & scale, const ColorRGBA & color,
   const bool & separate)
@@ -223,7 +334,7 @@ MarkerArray create_autoware_geometry_marker_array(
   marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
 
   for (size_t i = 0; i < ring.size(); ++i) {
-    geometry_msgs::msg::Point pt;
+    Point pt;
     pt.x = ring[i][0];
     pt.y = ring[i][1];
     pt.z = 0.0;
@@ -239,40 +350,51 @@ MarkerArray create_autoware_geometry_marker_array(
   return marker_array;
 }
 
-Marker create_autoware_geometry_marker(
-  const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color, double z)
+MarkerArray create_autoware_geometry_marker_array(
+  const Point & point_start, const Point & point_end, const rclcpp::Time & stamp,
+  const std::string & ns, const int64_t id, const ColorRGBA & color)
 {
-  check_marker_type_line(marker_type);
-  Marker marker =
-    create_default_marker("map", stamp, ns, id, marker_type, scale, color);
+  MarkerArray marker_array;
+  Vector3 scale;
+  scale.x = 1.0;
+  scale.y = 1.0;
+  scale.z = 1.0;
+  Marker marker = create_default_marker("map", stamp, ns + "_line", id, Marker::ARROW, scale, color);
+  
+  marker.points.push_back(point_start);
+  marker.points.push_back(point_end);
 
-  if (marker_type == Marker::LINE_LIST) {
-    for (size_t i = 0; i < polygon.outer().size(); ++i) {
-      const auto & cur = polygon.outer().at(i);
-      const auto & nxt = polygon.outer().at((i + 1) % polygon.outer().size());
-      geometry_msgs::msg::Point p1, p2;
-      p1.x = cur.x();
-      p1.y = cur.y();
-      p1.z = z;
-      p2.x = nxt.x();
-      p2.y = nxt.y();
-      p2.z = z;
-      marker.points.push_back(p1);
-      marker.points.push_back(p2);
-    }
-  } else if (marker_type == Marker::LINE_STRIP){
-    marker.pose.orientation = autoware_utils_visualization::create_marker_orientation(0, 0, 0, 1.0);
-    for (const auto & p : polygon.outer()) {
-      geometry_msgs::msg::Point pt;
-      pt.x = p.x();
-      pt.y = p.y();
-      pt.z = z;
-      marker.points.push_back(pt);
-    }
-  }
-  return marker;
+  marker_array.markers.push_back(marker);
+  return marker_array;
+}
+
+MarkerArray create_autoware_geometry_marker_array(
+  const geometry_msgs::msg::Pose & pose, const rclcpp::Time & stamp,
+  const std::string & ns, const int64_t id, const Vector3 & scale, const ColorRGBA & color)
+{
+  MarkerArray marker_array;
+
+  Marker marker_line = create_default_marker("map", stamp, ns + "_line", id, Marker::LINE_STRIP,
+  scale, color);
+  
+  const double yaw = tf2::getYaw(pose.orientation);
+
+  const double a = 3.0;
+  Point p0;
+  p0.x = pose.position.x - a * std::sin(yaw);
+  p0.y = pose.position.y + a * std::cos(yaw);
+  p0.z = pose.position.z;
+  marker_line.points.push_back(p0);
+
+  Point p1;
+  p1.x = pose.position.x + a * std::sin(yaw);
+  p1.y = pose.position.y - a * std::cos(yaw);
+  p1.z = pose.position.z;
+  marker_line.points.push_back(p1);
+
+  marker_array.markers.push_back(marker_line);
+
+  return marker_array;
 }
 
 MarkerArray create_predicted_objects_marker_array(
@@ -295,41 +417,6 @@ MarkerArray create_predicted_objects_marker_array(
     marker_array.markers.push_back(marker);
   }
   return marker_array;
-}
-
-// helper
-static void create_vehicle_footprint_marker(
-  Marker & marker, const geometry_msgs::msg::Pose & pose,
-  const double & base_to_right, const double & base_to_left, const double & base_to_front,
-  const double & base_to_rear)
-{
-  marker.points.push_back(
-    autoware_utils_geometry::calc_offset_pose(pose, base_to_front, base_to_left, 0.0).position);
-  marker.points.push_back(
-    autoware_utils_geometry::calc_offset_pose(pose, base_to_front, -base_to_right, 0.0).position);
-  marker.points.push_back(
-    autoware_utils_geometry::calc_offset_pose(pose, -base_to_rear, -base_to_right, 0.0).position);
-  marker.points.push_back(
-    autoware_utils_geometry::calc_offset_pose(pose, -base_to_rear, base_to_left, 0.0).position);
-  marker.points.push_back(marker.points.front());
-}
-
-static std::vector<double> calc_path_arc_length_array(
-  const autoware_internal_planning_msgs::msg::PathWithLaneId & path)
-{
-  std::vector<double> out;
-  if (path.points.empty()) return out;
-
-  out.reserve(path.points.size());
-  double sum = 0.0;
-  out.push_back(sum);
-
-  for (size_t i = 1; i < path.points.size(); ++i) {
-    sum += autoware_utils_geometry::calc_distance2d(
-      path.points.at(i).point, path.points.at(i - 1).point);
-    out.push_back(sum);
-  }
-  return out;
 }
 
 MarkerArray create_vehicle_trajectory_point_marker_array(
@@ -481,13 +568,59 @@ MarkerArray create_lanelet_polygon_marker_array(
     "map", stamp, ns, id, Marker::LINE_STRIP,
     create_marker_scale(0.1, 0.0, 0.0), color);
   for (const auto & p : polygon) {
-    geometry_msgs::msg::Point pt;
+    Point pt;
     pt.x = p.x();
     pt.y = p.y();
     pt.z = p.z();
     marker.points.push_back(pt);
   }
   marker_array.markers.push_back(marker);
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_marker_array(const lanelet::BasicPolygons2d & polygons,
+  const rclcpp::Time & stamp, const std::string & ns, int32_t id, uint32_t marker_type,
+  const Vector3 & scale, const ColorRGBA & color, double z)
+{
+  check_marker_type_line(marker_type);
+
+  MarkerArray marker_array;
+  auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
+
+  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+
+  if (marker_type == Marker::LINE_LIST){
+    for (const auto & poly : polygons) {
+      for (size_t i = 0; i < poly.size(); ++i){
+      const auto & cur = poly.at(i);
+      const auto & nxt = poly.at((i + 1) % poly.size());
+      Point p1, p2;
+      p1.x = cur.x();
+      p1.y = cur.y();
+      p2.x = nxt.x();
+      p2.y = nxt.y();
+      marker.points.push_back(create_marker_position(p1.x, p1.y, 0.0));
+      marker.points.push_back(create_marker_position(p2.x, p2.y, 0.0));
+      }
+    }
+    // put all points in one marker
+    marker_array.markers.push_back(marker);
+  }else if (marker_type == Marker::LINE_STRIP){
+    for (const auto & poly : polygons) {
+      for (const auto & p : poly) {
+        Point point = create_marker_position(p.x(), p.y(), z + 0.5);
+        marker.points.push_back(point);
+      }
+      // Separate Points in each marker in marker array
+      marker_array.markers.push_back(marker);
+      marker.id++;
+      marker.points.clear();
+    }
+  }else{
+    // return null marker array, but should not have this case
+    return marker_array;
+  }
+
   return marker_array;
 }
 
