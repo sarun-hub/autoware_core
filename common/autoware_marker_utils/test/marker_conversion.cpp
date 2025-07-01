@@ -533,7 +533,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionArea)
   const double marker_lifetime = 0.5;
   
   auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    (*detection_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+    (*detection_area_reg_elem), now, geometry_msgs::msg::Vector3(), color_, marker_lifetime
   );
 
   // Should have 2 * polygon + 1 (always have stop_line)
@@ -565,7 +565,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionAreaSeveralPol
   const double marker_lifetime = 0.5;
   
   auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    (*detection_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+    (*detection_area_reg_elem), now, geometry_msgs::msg::Vector3(), color_, marker_lifetime
   );
 
   // Should have 2 * polygon + 1 (always have stop_line)
@@ -597,7 +597,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopL
   const double marker_lifetime = 0.5;
   
   auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    (*no_stopping_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+    (*no_stopping_area_reg_elem), now, geometry_msgs::msg::Vector3(), color_, marker_lifetime
   );
 
   // Should have 2 * polygon + 1
@@ -629,7 +629,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithStopL
   const double marker_lifetime = 0.5;
   
   auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    (*no_stopping_area_reg_elem), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+    (*no_stopping_area_reg_elem), now, geometry_msgs::msg::Vector3(), color_, marker_lifetime
   );
 
   // Should have 2 * polygon + 1
@@ -657,7 +657,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayNoStoppingAreaWithoutSt
   const double marker_lifetime = 0.5;
   
   auto arr = autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    (*no_stopping_area_reg_elem_without_stop_line), now_, geometry_msgs::msg::Vector3(), color_, marker_lifetime
+    (*no_stopping_area_reg_elem_without_stop_line), now, geometry_msgs::msg::Vector3(), color_, marker_lifetime
   );
 
   // Should have 2 * polygon 
@@ -685,7 +685,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayOtherArea){
     lanelet::InvalId, {}, {no_parking_area}
   );
   EXPECT_THROW(autoware::experimental::marker_utils::create_lanelet_info_marker_array(
-    *(no_parking_area_reg_elem),now_, 
+    *(no_parking_area_reg_elem),now, 
     geometry_msgs::msg::Vector3(), color_, marker_lifetime),std::runtime_error);
 
 }
