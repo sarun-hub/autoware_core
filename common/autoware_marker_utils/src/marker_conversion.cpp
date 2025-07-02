@@ -613,6 +613,7 @@ MarkerArray create_lanelet_polygon_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
+  if (polygons.empty()) return MarkerArray{};
 
   if (marker_type == Marker::LINE_LIST) {
     for (const auto & poly : polygons) {

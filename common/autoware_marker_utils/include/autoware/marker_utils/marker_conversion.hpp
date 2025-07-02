@@ -178,6 +178,12 @@ MarkerArray create_lanelet_info_marker_array(
 }
 
 /**
+ * @brief check if the input type is LINE_LIST or LINE_STRIP
+ * @details it will throw runtime error if it's not LINE_LIST or LINE_STRIP
+ */
+void check_marker_type_line(uint32_t marker_type);
+
+/**
  * @brief create marker from Autoware Polygon2d
  * @param [in] polygon Autoware Polygon2d
  * @param [in] stamp time stamp of the marker
