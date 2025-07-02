@@ -213,8 +213,7 @@ MarkerArray create_autoware_geometry_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
-  // previous set value = 0.3
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 0.3
 
   const auto & points = polygon.points;
   const size_t N = points.size();
@@ -317,8 +316,7 @@ MarkerArray create_autoware_geometry_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, Marker::SPHERE, scale, color);
 
-  // previous set value = 0.3
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 0.3
 
   if (separate) {
     // Put each point to each marker
@@ -345,8 +343,7 @@ MarkerArray create_autoware_geometry_marker_array(
 {
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
-  // previous set value = 2.5
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 2.5
 
   for (size_t i = 0; i < ring.size(); ++i) {
     Point pt;
@@ -421,8 +418,7 @@ MarkerArray create_predicted_objects_marker_array(
 
   auto marker = create_default_marker(
     "map", stamp, ns, 0, Marker::CUBE, create_marker_scale(3.0, 1.0, 1.0), color);
-  // previous set value = 1.0
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 1.0
   int32_t uid = bitShift(id);
 
   for (size_t i = 0; i < objects.objects.size(); ++i) {
@@ -442,8 +438,7 @@ MarkerArray create_vehicle_trajectory_point_marker_array(
   auto marker = create_default_marker(
     "map", rclcpp::Clock().now(), ns, id, Marker::LINE_STRIP, create_marker_scale(0.05, 0.0, 0.0),
     create_marker_color(0.99, 0.99, 0.2, 0.99));
-  // previous set value = 1.5
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 1.5
 
   const double base_to_right = (vehicle_info.wheel_tread_m / 2.0) + vehicle_info.right_overhang_m;
   const double base_to_left = (vehicle_info.wheel_tread_m / 2.0) + vehicle_info.left_overhang_m;
@@ -477,8 +472,7 @@ MarkerArray create_predicted_path_marker_array(
 
   Marker marker = create_default_marker(
     "map", current_time, ns, id, Marker::LINE_STRIP, create_marker_scale(0.1, 0.1, 0.1), color);
-  // previous set value = 1.5
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+  // previous set marker_lifetime value = 1.5
 
   MarkerArray marker_array;
   const double half_width = -vehicle_info.vehicle_width_m / 2.0;
@@ -512,8 +506,8 @@ MarkerArray create_path_with_lane_id_marker_array(
 
   for (const auto & p : path.points) {
     marker.id = uid + i++;
-    // previous set value = 0.3
-    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+    // previous set vmarker_lifetime alue = 0.3
+
     marker.pose = p.point.pose;
 
     if (std::find(p.lane_ids.begin(), p.lane_ids.end(), id) == p.lane_ids.end() && !with_text) {
@@ -596,7 +590,6 @@ MarkerArray create_lanelet_polygon_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, Marker::LINE_STRIP, scale, color);
 
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
 
   marker.points.clear();
   for (const auto & p : polygon) {
@@ -620,7 +613,6 @@ MarkerArray create_lanelet_polygon_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
-  marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
 
   if (marker_type == Marker::LINE_LIST) {
     for (const auto & poly : polygons) {

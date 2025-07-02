@@ -48,7 +48,6 @@ using autoware_utils_visualization::create_default_marker;
 using autoware_utils_visualization::create_marker_color;
 using autoware_utils_visualization::create_marker_position;
 using autoware_utils_visualization::create_marker_scale;
-double marker_lifetime = autoware_utils_visualization::MARKER_LIFETIME;
 
 // ===================== Helper Function ==================================
 
@@ -84,7 +83,7 @@ struct always_false : std::false_type
 template <typename RegElemT>
 MarkerArray create_lanelet_info_marker_array(
   const RegElemT & reg_elem, const rclcpp::Time & now, const Vector3 & scale,
-  const ColorRGBA & color, const double marker_lifetime)
+  const ColorRGBA & color)
 {
   lanelet::ConstPolygons3d reg_elem_areas;
   auto polygon_to_stop_line_marker_type = visualization_msgs::msg::Marker::LINE_LIST;
@@ -114,7 +113,7 @@ MarkerArray create_lanelet_info_marker_array(
       "map", now, ns_prefix + "_id", static_cast<int32_t>(reg_elem.id()),
       visualization_msgs::msg::Marker::TEXT_VIEW_FACING, create_marker_scale(0.0, 0.0, 1.0),
       create_marker_color(1.0, 1.0, 1.0, 0.999));
-    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+    // previous set marker_lifetime value = 0.2
 
     for (const auto & area : reg_elem_areas) {
       const auto poly = area.basicPolygon();
@@ -131,7 +130,7 @@ MarkerArray create_lanelet_info_marker_array(
     auto marker = create_default_marker(
       "map", now, ns_prefix + "_polygon", static_cast<int32_t>(reg_elem.id()),
       visualization_msgs::msg::Marker::LINE_LIST, scale, color);
-    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+    // previous set marker_lifetime value = 0.2
 
     for (const auto & area : reg_elem_areas) {
       const auto poly = area.basicPolygon();
@@ -161,7 +160,7 @@ MarkerArray create_lanelet_info_marker_array(
       "map", now, ns_prefix + "_correspondence", static_cast<int32_t>(reg_elem.id()),
       polygon_to_stop_line_marker_type, scale, color);
 
-    marker.lifetime = rclcpp::Duration::from_seconds(marker_lifetime);
+    // previous set marker_lifetime value = 0.2
 
     for (auto & area : reg_elem_areas) {
       const auto poly = area.basicPolygon();
@@ -446,7 +445,6 @@ MarkerArray create_lanelet_polygon_marker_array(
  * @param [in] stamp time stamp of the marker
  * @param [in] ns namespace
  * @param [in] id id of the marker
- * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
  * @param [in] scale scale of the marker
  * @param [in] color color of the marker
  * @return marker array of the lanelet BasicPolygon2d
