@@ -590,7 +590,6 @@ MarkerArray create_lanelet_polygon_marker_array(
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, Marker::LINE_STRIP, scale, color);
 
-
   marker.points.clear();
   for (const auto & p : polygon) {
     Point point = create_marker_position(p.x(), p.y(), z + 0.5);
