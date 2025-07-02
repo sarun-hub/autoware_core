@@ -83,8 +83,9 @@ TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
   poly.points.push_back(make_point(1.0f, 0.0f, 0.0f));
   poly.points.push_back(make_point(1.0f, 1.0f, 0.0f));
 
+  int32_t id = 42;
   auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
-    poly, now, "ns", 42, visualization_msgs::msg::Marker::LINE_STRIP,
+    poly, now, "ns", id, visualization_msgs::msg::Marker::LINE_STRIP,
     create_marker_scale(0.1, 0.1, 0.1), color_);
 
   ASSERT_EQ(arr.markers.size(), 1u);
@@ -169,8 +170,9 @@ TEST_F(MarkerConversionTest, CreatePullOverAreaMarkerArray)
   mp.push_back(square_2);
 
   double z = 2.5;
+  int32_t id = 42;
   auto arr = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
-    mp, now, "ns", 42, visualization_msgs::msg::Marker::LINE_STRIP,
+    mp, now, "ns", id, visualization_msgs::msg::Marker::LINE_STRIP,
     create_marker_scale(0.1, 0.1, 0.1), color_, z);
 
   ASSERT_EQ(arr.markers.size(), 2u);

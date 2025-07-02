@@ -210,8 +210,23 @@ geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_
 /**
  * @brief Make a marker of LineString2d
  * @param [in] ls LineString2d
+ * return marker of LineString2d
  */
-Marker make_linestring_marker(const autoware_utils::LineString2d & ls, const double z);
+Marker create_linestring_marker(const autoware_utils::LineString2d & ls, const double z);
+
+/**
+ * @brief Make a marker of BasicLineString2d
+ * @param [in] ls BasicLineString2d
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * return marker of BasicLineString2d
+ */
+Marker create_basiclinestring_marker(
+  const lanelet::BasicLineString2d & ls, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const Vector3 & scale, const ColorRGBA & color, const double z);
 
 // ====================== Main Function ===================================
 
@@ -261,8 +276,8 @@ MarkerArray create_autoware_geometry_marker_array(
  */
 MarkerArray create_autoware_geometry_marker_array(
   const autoware_utils_geometry::MultiPolygon2d & area_polygons, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
-  const ColorRGBA & color, double z = 0.0);
+  const std::string & ns, int32_t & id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color, double z = 0.0, bool running_id = false);
 
 /**
  * @brief return marker array from centroid of MultiPolygon2d and trajectory point
@@ -426,6 +441,21 @@ MarkerArray create_lanelet_polygon_marker_array(
   int32_t id, const ColorRGBA & color);
 
 /**
+ * @brief create marker array from lanelet BasicPolygon2d 
+ * @param [in] polygons lanelet BasicPolygon2d 
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @return marker array of the lanelet BasicPolygon2d 
+ */
+MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::BasicPolygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const Vector3 & scale, const ColorRGBA & color, double z);
+
+/**
  * @brief create marker array from lanelet BasicPolygons2d (vector of BasicPolygon2d)
  * @param [in] polygons lanelet BasicPolygons2d (vector of BasicPolygon2d)
  * @param [in] stamp time stamp of the marker
@@ -439,6 +469,21 @@ MarkerArray create_lanelet_polygon_marker_array(
 MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z = 0.0);
+
+
+/**
+ * @brief create marker array from MultiLineString2d (group of LineString2d)
+ * @param [in] mls MultiLineString2d (group of LineString2d)
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
+ * @return marker array of the MultiLineString2d
+ */
+MarkerArray create_multistring_marker_array(
+  const autoware_utils::MultiLineString2d & mls, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const Vector3 & scale, const ColorRGBA & color, const double z);
 
 }  // namespace autoware::experimental::marker_utils
 
