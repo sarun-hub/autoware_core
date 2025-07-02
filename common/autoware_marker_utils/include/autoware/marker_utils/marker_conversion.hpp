@@ -441,15 +441,15 @@ MarkerArray create_lanelet_polygon_marker_array(
   int32_t id, const ColorRGBA & color);
 
 /**
- * @brief create marker array from lanelet BasicPolygon2d 
- * @param [in] polygons lanelet BasicPolygon2d 
+ * @brief create marker array from lanelet BasicPolygon2d
+ * @param [in] polygons lanelet BasicPolygon2d
  * @param [in] stamp time stamp of the marker
  * @param [in] ns namespace
  * @param [in] id id of the marker
  * @param [in] marker_type type of the marker (LINE_LIST or LINE_STRIP)
  * @param [in] scale scale of the marker
  * @param [in] color color of the marker
- * @return marker array of the lanelet BasicPolygon2d 
+ * @return marker array of the lanelet BasicPolygon2d
  */
 MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::BasicPolygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
@@ -469,7 +469,6 @@ MarkerArray create_lanelet_polygon_marker_array(
 MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z = 0.0);
-
 
 /**
  * @brief create marker array from MultiLineString2d (group of LineString2d)

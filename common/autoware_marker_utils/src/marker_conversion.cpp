@@ -103,8 +103,8 @@ inline int64_t bitShift(int64_t original_id)
 
 Marker create_autoware_geometry_marker(
   const autoware_utils_geometry::Polygon2d & polygon, const rclcpp::Time & stamp,
-  const std::string & ns, int32_t id, uint32_t marker_type,
-  const Vector3 & scale, const ColorRGBA & color, double z)
+  const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
+  const ColorRGBA & color, double z)
 {
   check_marker_type_line(marker_type);
   Marker marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
