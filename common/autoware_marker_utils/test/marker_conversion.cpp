@@ -15,7 +15,6 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <autoware/marker_utils/marker_conversion.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/detection_area.hpp>
-#include <autoware_lanelet2_extension/regulatory_elements/no_parking_area.hpp>
 #include <autoware_lanelet2_extension/regulatory_elements/no_stopping_area.hpp>
 #include <autoware_utils_geometry/boost_polygon_utils.hpp>
 #include <autoware_utils_visualization/marker_helper.hpp>
@@ -61,6 +60,14 @@ protected:
 
 auto make_point = [](float x, float y, float z) {
   geometry_msgs::msg::Point32 p;
+  p.x = x;
+  p.y = y;
+  p.z = z;
+  return p;
+};
+
+auto make_point_plain = [](double x, double y, double z) {
+  geometry_msgs::msg::Point p;
   p.x = x;
   p.y = y;
   p.z = z;
@@ -843,6 +850,87 @@ TEST_F(MarkerConversionTest, OneBasicPolygon2d)
   EXPECT_EQ(marker.ns, "test_ns");
   EXPECT_EQ(marker.id, 0);
   EXPECT_EQ(marker.type, Marker::LINE_STRIP);
+}
+
+// Test xx: convert Eigen::Vector3d to geometry_msgs::msg::Point32 and lanelet::ConstPolygon3d to
+// geometry_msgs::msg::Polygon
+TEST_F(MarkerConversionTest, TypeConversionToGeometryMsg)
+{
+  using lanelet::Point3d;
+
+  Eigen::Vector3d test_vector(1.0f, 0.0f, 1.0f);
+  auto point32 = autoware::experimental::marker_utils::to_geom_msg_pt32(test_vector);
+
+  expect_point_eq(point32, 1.0f, 0.0f, 1.0f);
+  EXPECT_TRUE((std::is_same_v<decltype(point32), geometry_msgs::msg::Point32>));
+
+  Point3d p1(lanelet::InvalId, 3.0f, -1.0f, 0.0f);
+  Point3d p2(lanelet::InvalId, 3.0f, 1.0f, 0.0f);
+  Point3d p3(lanelet::InvalId, 5.0f, 1.0f, 1.0f);
+  Point3d p4(lanelet::InvalId, 5.0f, -1.0f, 3.0f);
+
+  lanelet::Polygon3d polygon(lanelet::InvalId, {p1, p2, p3, p4});
+  lanelet::ConstPolygon3d const_polygon{polygon};
+
+  auto geom_polygon = autoware::experimental::marker_utils::to_geom_msg_poly(const_polygon);
+
+  expect_point_eq(geom_polygon.points[0], 3.0f, -1.0f, 0.0f);
+  expect_point_eq(geom_polygon.points[1], 3.0f, 1.0f, 0.0f);
+  expect_point_eq(geom_polygon.points[2], 5.0f, 1.0f, 1.0f);
+  expect_point_eq(geom_polygon.points[3], 5.0f, -1.0f, 3.0f);
+  EXPECT_TRUE((std::is_same_v<decltype(geom_polygon), geometry_msgs::msg::Polygon>));
+}
+
+// Test xx: create_autoware_geometry_marker_array with a vector of geometry_msgs::msg::Point
+// (both separate and not separate)
+TEST_F(MarkerConversionTest, CreateMarkerArrayGeometryPoints)
+{
+  using geometry_msgs::msg::Point;
+
+  std::vector<Point> test_vector;
+  test_vector.push_back(make_point_plain(1.0f, 2.0f, 3.0f));
+  test_vector.push_back(make_point_plain(0.0f, 4.0f, -1.0f));
+  test_vector.push_back(make_point_plain(3.0f, 3.0f, 1.0f));
+  test_vector.push_back(make_point_plain(4.0f, 1.0f, 0.0f));
+
+  bool false_separate = false;
+  auto marker_array = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    test_vector, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 1.0), color_, false_separate);
+
+  EXPECT_EQ(marker_array.markers.size(), 1u);
+  auto marker = marker_array.markers[0];
+  expect_point_eq(marker.points[0], 1.0f, 2.0f, 3.0);
+  expect_point_eq(marker.points[1], 0.0f, 4.0f, -1.0f);
+  expect_point_eq(marker.points[2], 3.0f, 3.0f, 1.0f);
+  expect_point_eq(marker.points[3], 4.0f, 1.0f, 0.0f);
+
+  bool true_separate = true;
+  auto marker_array_separate =
+    autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+      test_vector, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 1.0), color_, true_separate);
+
+  EXPECT_EQ(marker_array_separate.markers.size(), test_vector.size());
+  for (auto i = 0u; i < marker_array_separate.markers.size(); ++i) {
+    auto marker = marker_array_separate.markers[i];
+    expect_point_eq(marker.pose.position, test_vector[i].x, test_vector[i].y, test_vector[i].z);
+  }
+}
+
+// Test xx: create_autoware_geometry_marker_array with an arrow
+TEST_F(MarkerConversionTest, CreateMarkerArrayArrow)
+{
+  using geometry_msgs::msg::Point;
+
+  Point p_start = make_point_plain(0.0f, 0.0f, 0.0f);
+  Point p_end = make_point_plain(1.0f, 1.0f, 1.0f);
+
+  auto marker_array = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    p_start, p_end, now, "test_ns", 0, color_);
+  
+  EXPECT_EQ(marker_array.markers.size(), 1u);
+  EXPECT_EQ(marker_array.markers[0].type, visualization_msgs::msg::Marker::ARROW);
+  expect_point_eq(marker_array.markers[0].points[0],0.0f, 0.0f, 0.0f);
+  expect_point_eq(marker_array.markers[0].points[1],1.0f, 1.0f, 1.0f);
 }
 
 }  // namespace
