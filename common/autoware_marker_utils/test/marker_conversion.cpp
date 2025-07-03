@@ -578,7 +578,7 @@ TEST_F(MarkerConversionTest, CreateLaneletInfoMarkerArrayDetectionAreaSeveralPol
     lanelet::InvalId, {}, {detection_area, detection_area, detection_area}, reg_elem_stop_line);
 
   const lanelet::Polygons3d reg_elem_areas_ = (*detection_area_reg_elem).detectionAreas();
-  
+
   lanelet::ConstPolygons3d reg_elem_areas;
   for (auto reg_elem_area : reg_elem_areas_) {
     reg_elem_areas.emplace_back(reg_elem_area);
