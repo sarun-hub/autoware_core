@@ -926,11 +926,11 @@ TEST_F(MarkerConversionTest, CreateMarkerArrayArrow)
 
   auto marker_array = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
     p_start, p_end, now, "test_ns", 0, color_);
-  
+
   EXPECT_EQ(marker_array.markers.size(), 1u);
   EXPECT_EQ(marker_array.markers[0].type, visualization_msgs::msg::Marker::ARROW);
-  expect_point_eq(marker_array.markers[0].points[0],0.0f, 0.0f, 0.0f);
-  expect_point_eq(marker_array.markers[0].points[1],1.0f, 1.0f, 1.0f);
+  expect_point_eq(marker_array.markers[0].points[0], 0.0f, 0.0f, 0.0f);
+  expect_point_eq(marker_array.markers[0].points[1], 1.0f, 1.0f, 1.0f);
 }
 
 }  // namespace
