@@ -39,6 +39,13 @@
 
 namespace autoware::experimental::marker_utils
 {
+// shorten type
+using geometry_msgs::msg::Point;
+using geometry_msgs::msg::Vector3;
+using std_msgs::msg::ColorRGBA;
+using visualization_msgs::msg::Marker;
+using visualization_msgs::msg::MarkerArray;
+
 using autoware_utils_visualization::create_default_marker;
 using autoware_utils_visualization::create_marker_color;
 using autoware_utils_visualization::create_marker_position;
@@ -410,6 +417,212 @@ MarkerArray create_autoware_geometry_marker_array(
   return marker_array;
 }
 
+MarkerArray create_lanelets_marker_array(
+  const lanelet::ConstLanelets & lanelets, const std::string & ns, const Vector3 scale,
+  const ColorRGBA & color, const double z, const bool planning)
+{
+  if (lanelets.empty()) {
+    return MarkerArray{};
+  }
+
+  MarkerArray marker_array;
+
+  if (planning) {
+    if (ns.empty()) {
+      return lanelet::visualization::laneletsBoundaryAsMarkerArray(lanelets, color, false);
+    } else {
+      return lanelet::visualization::laneletsAsTriangleMarkerArray(ns, lanelets, color);
+    }
+  }
+
+  auto marker =
+    create_default_marker("map", rclcpp::Time(0), ns, 0, Marker::LINE_LIST, scale, color);
+
+  for (const auto & ll : lanelets) {
+    marker.points.clear();
+    for (const auto & p : ll.polygon2d().basicPolygon()) {
+      marker.points.push_back(create_marker_position(p.x(), p.y(), z + 0.5));
+    }
+    if (!marker.points.empty()) {
+      marker.points.push_back(marker.points.front());
+    }
+    marker_array.markers.push_back(marker);
+    ++marker.id;
+  }
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const ColorRGBA & color)
+{
+  MarkerArray marker_array;
+  auto marker = create_default_marker(
+    "map", stamp, ns, id, Marker::LINE_STRIP, create_marker_scale(0.1, 0.0, 0.0), color);
+  for (const auto & p : polygon) {
+    Point pt;
+    pt.x = p.x();
+    pt.y = p.y();
+    pt.z = p.z();
+    marker.points.push_back(pt);
+  }
+  marker_array.markers.push_back(marker);
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::BasicPolygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const Vector3 & scale, const ColorRGBA & color, double z)
+{
+  MarkerArray marker_array;
+  auto marker = create_default_marker("map", stamp, ns, id, Marker::LINE_STRIP, scale, color);
+
+  marker.points.clear();
+  for (const auto & p : polygon) {
+    Point point = create_marker_position(p.x(), p.y(), z + 0.5);
+    marker.points.push_back(point);
+  }
+  if (!marker.points.empty()) marker.points.push_back(marker.points.front());
+  // Add to marker array
+  marker_array.markers.push_back(marker);
+  marker.id++;  // Not necessary (?)
+
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_marker_array(
+  const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z)
+{
+  check_marker_type_line(marker_type);
+
+  MarkerArray marker_array;
+  auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
+
+  if (polygons.empty()) return MarkerArray{};
+
+  if (marker_type == Marker::LINE_LIST) {
+    for (const auto & poly : polygons) {
+      for (size_t i = 0; i < poly.size(); ++i) {
+        const auto & cur = poly.at(i);
+        const auto & nxt = poly.at((i + 1) % poly.size());
+        Point p1, p2;
+        p1.x = cur.x();
+        p1.y = cur.y();
+        p2.x = nxt.x();
+        p2.y = nxt.y();
+        marker.points.push_back(create_marker_position(p1.x, p1.y, 0.0));
+        marker.points.push_back(create_marker_position(p2.x, p2.y, 0.0));
+      }
+    }
+    // put all Polygons in one marker
+    marker_array.markers.push_back(marker);
+  } else if (marker_type == Marker::LINE_STRIP) {
+    for (const auto & poly : polygons) {
+      for (const auto & p : poly) {
+        Point point = create_marker_position(p.x(), p.y(), z + 0.5);
+        marker.points.push_back(point);
+      }
+      // Separate Polygon in each marker in marker array
+      marker_array.markers.push_back(marker);
+      marker.id++;
+      marker.points.clear();
+    }
+  } else {
+    // return null marker array, but should not have this case
+    return marker_array;
+  }
+
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_info_marker_array(
+  const lanelet::ConstPolygons3d & reg_elem_areas,
+  const boost::optional<lanelet::ConstLineString3d> & stop_line, const rclcpp::Time & stamp,
+  const std::string & ns_prefix, int32_t id, const Vector3 & scale, const ColorRGBA & color)
+{
+  MarkerArray marker_array;
+
+  // ID
+  {
+    Marker marker_text = create_default_marker(
+      "map", stamp, ns_prefix + "_id", static_cast<int32_t>(id), Marker::TEXT_VIEW_FACING, scale,
+      color);
+
+    for (const auto & area : reg_elem_areas) {
+      const auto poly = area.basicPolygon();
+
+      marker_text.pose.position = to_msg(poly.front());
+      marker_text.pose.position.z += 2.0;
+      marker_text.text = std::to_string(id);
+
+      marker_array.markers.push_back(marker_text);
+    }
+  }
+
+  // Polygon
+  {
+    auto marker = create_default_marker(
+      "map", stamp, ns_prefix + "_polygon", static_cast<int32_t>(id), Marker::LINE_LIST, scale,
+      color);
+
+    for (const auto & area : reg_elem_areas) {
+      const auto poly = area.basicPolygon();
+
+      for (size_t i = 0; i < poly.size(); ++i) {
+        const auto idx_front = i;
+        const auto idx_back = (i == poly.size() - 1) ? 0 : i + 1;
+
+        const auto & p_front = poly.at(idx_front);
+        const auto & p_back = poly.at(idx_back);
+
+        marker.points.push_back(to_msg(p_front));
+        marker.points.push_back(to_msg(p_back));
+      }
+
+      marker_array.markers.push_back(marker);
+    }
+  }
+
+  // Polygon to Stopline
+  {
+    if (stop_line) {
+      const auto stop_line_center_point =
+        (stop_line->front().basicPoint() + stop_line->back().basicPoint()) / 2;
+
+      // TODO: Now Set to LINE_LIST as default,
+      // but NoStoppingArea uses LINE_STRIP, consider the reason.
+      auto marker = create_default_marker(
+        "map", stamp, ns_prefix + "_correspondence", static_cast<int32_t>(id), Marker::LINE_LIST,
+        scale, color);
+
+      for (auto & area : reg_elem_areas) {
+        const auto poly = area.basicPolygon();
+        const auto centroid_point = get_centroid_point(poly);
+        for (size_t i = 0; i < poly.size(); ++i) {
+          marker.points.push_back(to_msg(centroid_point));
+          marker.points.push_back(to_msg(stop_line_center_point));
+        }
+      }
+      // put all centroid point of all areas msg in one marker
+      marker_array.markers.push_back(marker);
+    }
+  }
+
+  return marker_array;
+}
+
+MarkerArray create_lanelet_polygon_info_marker_array(
+  const lanelet::ConstPolygons3d & reg_elem_areas, const lanelet::ConstLineString3d & stop_line,
+  const rclcpp::Time & stamp, const std::string & ns_prefix, int32_t id, const Vector3 & scale,
+  const ColorRGBA & color)
+{
+  // wrap stop_line with boost::optional
+  return create_lanelet_polygon_info_marker_array(
+    reg_elem_areas, boost::optional<lanelet::ConstLineString3d>{stop_line}, stamp, ns_prefix, id,
+    scale, color);
+}
+
 MarkerArray create_predicted_objects_marker_array(
   const autoware_perception_msgs::msg::PredictedObjects & objects, const rclcpp::Time & stamp,
   const std::string & ns, const int64_t id, const ColorRGBA & color)
@@ -528,125 +741,6 @@ MarkerArray create_path_with_lane_id_marker_array(
     ++idx;
   }
   return msg;
-}
-
-MarkerArray create_lanelets_marker_array(
-  const lanelet::ConstLanelets & lanelets, const std::string & ns, const Vector3 scale,
-  const ColorRGBA & color, const double z, const bool planning)
-{
-  if (lanelets.empty()) {
-    return MarkerArray{};
-  }
-
-  MarkerArray marker_array;
-
-  if (planning) {
-    if (ns.empty()) {
-      return lanelet::visualization::laneletsBoundaryAsMarkerArray(lanelets, color, false);
-    } else {
-      return lanelet::visualization::laneletsAsTriangleMarkerArray(ns, lanelets, color);
-    }
-  }
-
-  auto marker =
-    create_default_marker("map", rclcpp::Time(0), ns, 0, Marker::LINE_LIST, scale, color);
-
-  for (const auto & ll : lanelets) {
-    marker.points.clear();
-    for (const auto & p : ll.polygon2d().basicPolygon()) {
-      marker.points.push_back(create_marker_position(p.x(), p.y(), z + 0.5));
-    }
-    if (!marker.points.empty()) {
-      marker.points.push_back(marker.points.front());
-    }
-    marker_array.markers.push_back(marker);
-    ++marker.id;
-  }
-  return marker_array;
-}
-
-MarkerArray create_lanelet_polygon_marker_array(
-  const lanelet::CompoundPolygon3d & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, const ColorRGBA & color)
-{
-  MarkerArray marker_array;
-  auto marker = create_default_marker(
-    "map", stamp, ns, id, Marker::LINE_STRIP, create_marker_scale(0.1, 0.0, 0.0), color);
-  for (const auto & p : polygon) {
-    Point pt;
-    pt.x = p.x();
-    pt.y = p.y();
-    pt.z = p.z();
-    marker.points.push_back(pt);
-  }
-  marker_array.markers.push_back(marker);
-  return marker_array;
-}
-
-MarkerArray create_lanelet_polygon_marker_array(
-  const lanelet::BasicPolygon2d & polygon, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, const Vector3 & scale, const ColorRGBA & color, double z)
-{
-  MarkerArray marker_array;
-  auto marker = create_default_marker("map", stamp, ns, id, Marker::LINE_STRIP, scale, color);
-
-  marker.points.clear();
-  for (const auto & p : polygon) {
-    Point point = create_marker_position(p.x(), p.y(), z + 0.5);
-    marker.points.push_back(point);
-  }
-  if (!marker.points.empty()) marker.points.push_back(marker.points.front());
-  // Add to marker array
-  marker_array.markers.push_back(marker);
-  marker.id++;  // Not necessary (?)
-
-  return marker_array;
-}
-
-MarkerArray create_lanelet_polygon_marker_array(
-  const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
-  int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z)
-{
-  check_marker_type_line(marker_type);
-
-  MarkerArray marker_array;
-  auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
-
-  if (polygons.empty()) return MarkerArray{};
-
-  if (marker_type == Marker::LINE_LIST) {
-    for (const auto & poly : polygons) {
-      for (size_t i = 0; i < poly.size(); ++i) {
-        const auto & cur = poly.at(i);
-        const auto & nxt = poly.at((i + 1) % poly.size());
-        Point p1, p2;
-        p1.x = cur.x();
-        p1.y = cur.y();
-        p2.x = nxt.x();
-        p2.y = nxt.y();
-        marker.points.push_back(create_marker_position(p1.x, p1.y, 0.0));
-        marker.points.push_back(create_marker_position(p2.x, p2.y, 0.0));
-      }
-    }
-    // put all Polygons in one marker
-    marker_array.markers.push_back(marker);
-  } else if (marker_type == Marker::LINE_STRIP) {
-    for (const auto & poly : polygons) {
-      for (const auto & p : poly) {
-        Point point = create_marker_position(p.x(), p.y(), z + 0.5);
-        marker.points.push_back(point);
-      }
-      // Separate Polygon in each marker in marker array
-      marker_array.markers.push_back(marker);
-      marker.id++;
-      marker.points.clear();
-    }
-  } else {
-    // return null marker array, but should not have this case
-    return marker_array;
-  }
-
-  return marker_array;
 }
 
 MarkerArray create_multistring_marker_array(
