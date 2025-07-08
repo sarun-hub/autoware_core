@@ -92,10 +92,17 @@ geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_
 /**
  * @brief Make a marker of LineString2d
  * @param [in] ls LineString2d
+ * @param [in] stamp time stamp of the marker
+ * @param [in] ns namespace
+ * @param [in] id id of the marker
+ * @param [in] scale scale of the marker
+ * @param [in] color color of the marker
  * return marker of LineString2d
  */
 visualization_msgs::msg::Marker create_linestring_marker(
-  const autoware_utils::LineString2d & ls, const double z);
+  const autoware_utils::LineString2d & ls, const rclcpp::Time & stamp, const std::string & ns,
+  int32_t id, const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color,
+  const double z);
 
 /**
  * @brief Make a marker of BasicLineString2d
