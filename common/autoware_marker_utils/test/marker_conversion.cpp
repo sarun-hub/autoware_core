@@ -933,6 +933,155 @@ TEST_F(MarkerConversionTest, CreateMarkerArrayArrow)
   expect_point_eq(marker_array.markers[0].points[1], 1.0f, 1.0f, 1.0f);
 }
 
+// Test xx: create_autoware_geometry_marker_array with the pose (to create yaw line)
+TEST_F(MarkerConversionTest, CreateMarkerArrayYawLine)
+{
+  geometry_msgs::msg::Pose pose;
+
+  pose.position.x = 1.0;
+  pose.position.y = 2.0;
+  pose.position.z = 0.0;
+
+  const double yaw = tf2::getYaw(pose.orientation);
+
+  auto marker_array = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    pose, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 0.1), color_);
+
+  EXPECT_EQ(marker_array.markers.size(), 1u);
+  auto marker_line = marker_array.markers[0];
+  EXPECT_EQ(marker_line.points.size(), 2u);
+  expect_point_eq(
+    marker_line.points[0], pose.position.x - 3 * std::sin(yaw), pose.position.y + 3 * std::cos(yaw),
+    pose.position.z);
+  expect_point_eq(
+    marker_line.points[1], pose.position.x + 3 * std::sin(yaw), pose.position.y - 3 * std::cos(yaw),
+    pose.position.z);
+}
+
+// Test xx: create_linestring_marker
+TEST_F(MarkerConversionTest, CreateLineStringMarker)
+{
+  using autoware_utils_geometry::Point2d;
+
+  autoware_utils_geometry::LineString2d ls{{Point2d{0, 0}, Point2d{1, 0}, Point2d{1, 1}}};
+
+  double z = 3;
+  auto marker = autoware::experimental::marker_utils::create_linestring_marker(
+    ls, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 0.1), color_, z);
+
+  ASSERT_EQ(marker.points.size(), 3u);
+  expect_point_eq(marker.points[0], 0, 0, z);
+  expect_point_eq(marker.points[1], 1, 0, z);
+  expect_point_eq(marker.points[2], 1, 1, z);
+}
+
+// Test xx: create_multistring_marker_array
+TEST_F(MarkerConversionTest, CreateMultiStringMarkerArray)
+{
+  using autoware_utils_geometry::LineString2d;
+  using autoware_utils_geometry::MultiLineString2d;
+  using autoware_utils_geometry::Point2d;
+
+  LineString2d ls1{{Point2d{0, 0}, Point2d{1, 0}, Point2d{1, 1}}};
+  LineString2d ls2{{Point2d{1, 1}, Point2d{2, 0}, Point2d{2, 2}}};
+  LineString2d ls3{{Point2d{2, 2}, Point2d{3, 0}, Point2d{3, 3}}};
+
+  MultiLineString2d mls;
+  mls.push_back(ls1);
+  mls.push_back(ls2);
+  mls.push_back(ls3);
+
+  double z = 3;
+  auto marker_array = autoware::experimental::marker_utils::create_multistring_marker_array(
+    mls, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 0.1), color_, z);
+
+  EXPECT_EQ(marker_array.markers.size(), 3u);
+  EXPECT_EQ(marker_array.markers[0].id, 0);
+  EXPECT_EQ(marker_array.markers[1].id, 1);
+  EXPECT_EQ(marker_array.markers[2].id, 2);
+
+  auto marker1 = marker_array.markers[0];
+  expect_point_eq(marker1.points[0], 0, 0, z);
+  expect_point_eq(marker1.points[1], 1, 0, z);
+  expect_point_eq(marker1.points[2], 1, 1, z);
+
+  auto marker2 = marker_array.markers[1];
+  expect_point_eq(marker2.points[0], 1, 1, z);
+  expect_point_eq(marker2.points[1], 2, 0, z);
+  expect_point_eq(marker2.points[2], 2, 2, z);
+
+  auto marker3 = marker_array.markers[2];
+  expect_point_eq(marker3.points[0], 2, 2, z);
+  expect_point_eq(marker3.points[1], 3, 0, z);
+  expect_point_eq(marker3.points[2], 3, 3, z);
+}
+
+// Test xx: create_basiclinestring_marker
+TEST_F(MarkerConversionTest, CreateBasicLineStringMarker)
+{
+  using lanelet::BasicLineString2d;
+  using lanelet::BasicPoint2d;
+
+  BasicLineString2d ls;
+
+  ls.push_back(BasicPoint2d(0, 0));
+  ls.push_back(BasicPoint2d(1, 0));
+  ls.push_back(BasicPoint2d(1, 1));
+
+  double z = 3;
+  auto marker = autoware::experimental::marker_utils::create_basiclinestring_marker(
+    ls, now, "test_ns", 0, create_marker_scale(1.0, 1.0, 0.1), color_, z);
+
+  // size of points = 4
+  ASSERT_EQ(marker.points.size(), (ls.size() - 1) * 2);
+  expect_point_eq(marker.points[0], 0, 0, z);
+  expect_point_eq(marker.points[1], 1, 0, z);
+  expect_point_eq(marker.points[2], 1, 0, z);
+  expect_point_eq(marker.points[3], 1, 1, z);
+}
+
+// Test xx: create marker array from MultiPolygon2d with running id
+TEST_F(MarkerConversionTest, CreateMultiPolygonMarkerArrayRunningID)
+{
+  using autoware_utils_geometry::MultiPolygon2d;
+  using autoware_utils_geometry::Point2d;
+  using autoware_utils_geometry::Polygon2d;
+
+  Polygon2d square;
+  auto & ring = square.outer();
+  ring.push_back(Point2d{0.0, 0.0});
+  ring.push_back(Point2d{1.0, 0.0});
+  ring.push_back(Point2d{1.0, 1.0});
+  ring.push_back(Point2d{0.0, 1.0});
+
+  Polygon2d square_2;
+  auto & ring_2 = square_2.outer();
+  ring_2.push_back(Point2d{1.0, 1.0});
+  ring_2.push_back(Point2d{2.0, 1.0});
+  ring_2.push_back(Point2d{2.0, 2.0});
+  ring_2.push_back(Point2d{1.0, 2.0});
+
+  MultiPolygon2d mp;
+  mp.push_back(square);
+  mp.push_back(square_2);
+
+  double z = 3;
+  int32_t id = 0;
+  auto marker_array = autoware::experimental::marker_utils::create_autoware_geometry_marker_array(
+    mp, now, "test_ns", id, visualization_msgs::msg::Marker::LINE_STRIP,
+    create_marker_scale(1.0, 1.0, 0.1), color_, z, true);
+
+  ASSERT_EQ(marker_array.markers.size(), 2u);
+  EXPECT_EQ(marker_array.markers[0].id, 0);
+  EXPECT_EQ(marker_array.markers[1].id, 1);
+  EXPECT_EQ(id, 2);
+
+  const auto & pts = marker_array.markers[0].points;
+  EXPECT_EQ(pts.size(), 4u);
+  for (size_t i = 0; i < ring.size(); ++i) {
+    expect_point_eq(pts[i], ring[i].x(), ring[i].y(), z);
+  }
+}
 }  // namespace
 
 int main(int argc, char ** argv)
