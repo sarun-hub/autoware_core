@@ -272,7 +272,6 @@ MarkerArray create_autoware_geometry_marker_array(
   int32_t & uid = id;
 
   for (size_t i = 0; i < area_polygons.size(); ++i) {
-    if (running_id) uid += i;
     const auto marker = create_autoware_geometry_marker(
       area_polygons[i], stamp, ns, uid, marker_type, scale, color, z);
     marker_array.markers.push_back(marker);
