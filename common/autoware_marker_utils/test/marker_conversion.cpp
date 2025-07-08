@@ -319,7 +319,6 @@ TEST_F(MarkerConversionTest, CreateTextMarkerFromPoint)
   EXPECT_DOUBLE_EQ(m.pose.position.z, 5.0);  // 3 + 2 offset
 }
 
-
 // Test 8: create_autoware_geometry_marker_array with a vector of geometry_msgs::msg::Point
 // (both separate and not separate)
 TEST_F(MarkerConversionTest, CreateMarkerArrayGeometryPoints)
