@@ -97,8 +97,61 @@ static Trajectory<geometry_msgs::msg::Pose> build_bow_trajectory(
 
     double x = size * cos(theta);
     double y = size * sin(theta) * cos(theta);
-    raw_poses.push_back(make_pose(x, y, theta));
+    double yaw = std::atan2(cos(2 * theta), -1 * sin(theta));
+    raw_poses.push_back(make_pose(x, y, yaw));
   }
+  auto traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
+  return traj.value();
+}
+
+static double calculate_bow_trajectory_yaw(const double theta)
+{
+  return std::atan2(cos(2 * theta), -1 * sin(theta));
+}
+
+static double calculate_bow_trajectory_yaw_from_x(const double x, double size = 3)
+{
+  auto theta = std::acos(x / size);
+  return calculate_bow_trajectory_yaw(theta);
+}
+
+static Trajectory<geometry_msgs::msg::Pose> build_vertical_loop_trajectory(
+  const size_t num_points, const double radius, const double start_x, const double offset)
+{
+  std::vector<geometry_msgs::msg::Pose> raw_poses;
+  raw_poses.reserve(num_points);
+
+  size_t first_part = static_cast<size_t>(num_points / 3);
+  size_t last_part = static_cast<size_t>(num_points / 3);
+  size_t second_part = static_cast<size_t>(num_points - first_part - last_part);
+
+  // First part: going in (from right to left)
+  double rate = (start_x) / (first_part);
+  for (size_t i = 0u; i < first_part; ++i) {
+    double x = start_x - rate * i;
+    double y = offset;
+    raw_poses.push_back(make_pose(x, y, M_PI));
+  }
+
+  // Second part: go in the loop
+  double start_theta = M_PI * 3 / 2;
+  double loop_rate = 2 * M_PI / (second_part - 1);
+  for (size_t i = 0u; i < second_part; ++i) {
+    // from 3/2 pi to -1/2pi
+    double theta = start_theta - i * loop_rate;
+    double x = radius * cos(theta);
+    double y = (offset + radius) + radius * sin(theta);
+    raw_poses.push_back(make_pose(x, y, theta - M_PI / 2));
+  }
+
+  // Last part: go out to the left
+  double out_rate = (start_x) / (first_part);
+  for (size_t i = 1u; i <= last_part; ++i) {
+    double x = 0 - out_rate * i;
+    double y = offset;
+    raw_poses.push_back(make_pose(x, y, M_PI));
+  }
+
   auto traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
   return traj.value();
 }
@@ -296,16 +349,19 @@ TEST(trajectory, find_nearest_index_ParabolicTrajectory_AboveMinima)
 // Test 7: Two equal distance nearest points at the self-intersecting trajectory (less bases)
 TEST(trajectory, find_nearest_index_BowTrajectoryLessBases)
 {
+  // ALL FAILED WITH SMALL INACCURATE
   auto traj = build_bow_trajectory(10, 3, 1.5 * M_PI);
   {
-    auto query = make_pose(1, 1);
+    auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+    auto query = make_pose(1, 1, yaw);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);
   }
   // At intersection, first round
   {
-    auto query = make_pose(-0.05, 0, M_PI / 2);
+    auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+    auto query = make_pose(-0.05, 0, yaw);
     auto s_opt = find_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 2.6851636870536018, k_points_minimum_dist_threshold);
@@ -313,7 +369,8 @@ TEST(trajectory, find_nearest_index_BowTrajectoryLessBases)
 
   // At intersection, second round
   {
-    auto query = make_pose(-0.05, 0, M_PI * 1.5);
+    auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+    auto query = make_pose(-0.05, 0, yaw);
     auto s_opt = find_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 11.760225108845566, k_points_minimum_dist_threshold);
@@ -325,14 +382,16 @@ TEST(trajectory, find_nearest_index_BowTrajectoryManyBases)
 {
   auto traj = build_bow_trajectory(1000, 3, 1.5 * M_PI);
   {
-    auto query = make_pose(1, 1);
+    auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+    auto query = make_pose(1, 1, yaw);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);
+    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold); // NOW FAILED
   }
   // At intersection, first round
   {
-    auto query = make_pose(-0.05, 0, M_PI / 2);
+    auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+    auto query = make_pose(-0.05, 0, yaw);
     auto s_opt = find_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 2.6851636870536018, k_points_minimum_dist_threshold);
@@ -340,7 +399,8 @@ TEST(trajectory, find_nearest_index_BowTrajectoryManyBases)
 
   // At intersection, second round
   {
-    auto query = make_pose(-0.05, 0, M_PI * 1.5);
+    auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+    auto query = make_pose(-0.05, 0, yaw);
     auto s_opt = find_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 11.760225108845566, k_points_minimum_dist_threshold);
@@ -348,7 +408,7 @@ TEST(trajectory, find_nearest_index_BowTrajectoryManyBases)
 }
 
 // Test 9: Original Approach on bow trajectory
-TEST(trajectory, OriginalApproach)
+TEST(trajectory, OriginalApproachOnBowTrajectory)
 {
   {
     auto traj = build_bow_trajectory(10, 3, 1.5 * M_PI);
@@ -358,17 +418,20 @@ TEST(trajectory, OriginalApproach)
       points.push_back(p);
     }
     {
-      auto query = make_pose(1, 1);
+      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+      auto query = make_pose(1, 1, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 1u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 2u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI * 3 / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 8u);
     }
@@ -381,17 +444,20 @@ TEST(trajectory, OriginalApproach)
       points.push_back(p);
     }
     {
-      auto query = make_pose(1, 1);
+      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+      auto query = make_pose(1, 1, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 9u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 17u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI * 3 / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 83u);
     }
@@ -404,19 +470,121 @@ TEST(trajectory, OriginalApproach)
       points.push_back(p);
     }
     {
-      auto query = make_pose(1, 1);
+      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+      auto query = make_pose(1, 1, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 92u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 168u);
     }
     {
-      auto query = make_pose(-0.05, 0, M_PI * 3 / 2);
+      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+      auto query = make_pose(-0.05, 0, yaw);
       auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
       EXPECT_EQ(min_index, 832u);
+    }
+  }
+}
+
+// Test 10: find_first_nearest_index: Two equal distance nearest points at the self-intersecting trajectory (less bases)
+TEST(trajectory, find_first_nearest_index_BowTrajectoryLessBases)
+{
+  // ALL FAILED due to small Inaccurate
+  auto traj = build_bow_trajectory(10, 3, 1.5 * M_PI);
+  {
+    auto yaw = calculate_bow_trajectory_yaw_from_x(1);
+    auto query = make_pose(1, 1, yaw);
+    auto s_opt = find_first_nearest_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);
+  }
+  // At intersection, first round
+  {
+    auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
+    auto query = make_pose(-0.05, 0, yaw);
+    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 2.6851636870536018, k_points_minimum_dist_threshold);
+  }
+
+  // At intersection, second round
+  {
+    auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
+    auto query = make_pose(-0.05, 0, yaw);
+    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 11.760225108845566, k_points_minimum_dist_threshold);
+  }
+}
+
+// Test 10: find_first_nearest_index on vertical loop trajectory
+TEST(trajectory, find_first_nearest_index_VerticalLoop)
+{
+  {
+    auto traj = build_vertical_loop_trajectory(10, 3, 3, 0);
+    {
+      auto query = make_pose(1, 1, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 1.96171, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, 0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 3.00769, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, -0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 2.99234, k_points_minimum_dist_threshold);
+    }
+  }
+  {
+    auto traj = build_vertical_loop_trajectory(100, 3, 3, 0);
+    {
+      auto query = make_pose(1, 1, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 1.99964, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, 0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 3.00024, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, -0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 2.99981, k_points_minimum_dist_threshold);
+    }
+  }
+  {
+    auto traj = build_vertical_loop_trajectory(1000, 3, 3, 0);
+    {
+      auto query = make_pose(1, 1, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 1.99967, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, 0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 3.00011, k_points_minimum_dist_threshold);
+    }
+    {
+      auto query = make_pose(0, -0.05, -M_PI);
+      auto s_opt = find_first_nearest_index(traj, query, 2.0, 1.046);
+      ASSERT_TRUE(s_opt.has_value());
+      EXPECT_NEAR(*s_opt, 3.00011, k_points_minimum_dist_threshold);
     }
   }
 }
