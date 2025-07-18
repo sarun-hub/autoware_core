@@ -174,7 +174,7 @@ std::optional<double> find_first_nearest_index(
   const double yaw_threshold = std::numeric_limits<double>::max())
 {
   std::vector<geometry_msgs::msg::Pose> points;
-  auto bases = trajectory.get_underlying_bases();
+  const auto & bases = trajectory.get_underlying_bases();
 
   size_t actual_min_index;
   {
@@ -184,7 +184,7 @@ std::optional<double> find_first_nearest_index(
     size_t min_idx = 0;
     bool is_within_constraints = false;
     for (size_t i = 0; i < bases.size(); ++i) {
-      auto point = trajectory.compute(bases[i]);
+      const auto point = trajectory.compute(bases[i]);
       const auto squared_dist =
         autoware_utils_geometry::calc_squared_distance2d(point.position, pose.position);
       const auto yaw_dev = autoware_utils_geometry::calc_yaw_deviation(point, pose);
