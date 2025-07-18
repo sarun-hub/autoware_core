@@ -35,6 +35,8 @@ using autoware::motion_utils::findFirstNearestIndexWithSoftConstraints;
 using autoware_utils_geometry::create_point;
 using autoware_utils_geometry::create_quaternion_from_rpy;
 
+// ============================== Helper Function ======================================== //
+
 static geometry_msgs::msg::Pose make_pose(double x, double y, double yaw = 0.0)
 {
   geometry_msgs::msg::Pose p;
@@ -155,6 +157,51 @@ static Trajectory<geometry_msgs::msg::Pose> build_vertical_loop_trajectory(
   auto traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
   return traj.value();
 }
+
+static Trajectory<geometry_msgs::msg::Pose> build_lollipop_trajectory(
+  const size_t num_points, const double radius, const double phase_dif = M_PI / 6,
+  const double start_x = 3, const double offset = 0)
+{
+  std::vector<geometry_msgs::msg::Pose> raw_poses;
+  raw_poses.reserve(num_points);
+
+  size_t first_part = static_cast<size_t>(num_points / 3);
+  size_t last_part = static_cast<size_t>(num_points / 3);
+  size_t second_part = static_cast<size_t>(num_points - first_part - last_part);
+
+  // First part: go into bottom
+  double rate = (start_x) / (first_part);
+  for (size_t i = 0u; i < first_part; ++i) {
+    double x = start_x - rate * i;
+    double y = offset - radius * sin(phase_dif / 2);
+    raw_poses.push_back(make_pose(x, y, M_PI));
+  }
+
+  // Second part: go in the loop
+  double start_theta = 2 * M_PI - phase_dif / 2;
+  double end_theta = phase_dif / 2;
+  double loop_rate = (end_theta - start_theta) / (second_part - 1);
+  for (size_t i = 0u; i < second_part; ++i) {
+    // from -phase_dif/2 to +phase_dif/2
+    double theta = start_theta + i * loop_rate;
+    double x = -radius * cos(phase_dif / 2) + radius * cos(theta);
+    double y = offset + radius * sin(theta);
+    raw_poses.push_back(make_pose(x, y, theta - M_PI / 2));
+  }
+
+  // Last part: go out from top
+  double out_rate = (start_x) / (last_part);
+  for (size_t i = 1u; i <= last_part; ++i) {
+    double x = 0 + out_rate * i;
+    double y = offset + radius * sin(phase_dif / 2);
+    raw_poses.push_back(make_pose(x, y, 0));
+  }
+
+  auto traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
+  return traj.value();
+}
+// ======================================== TEST =================================================
+// //
 
 // Test 1: find_nearest_index on a curved trajectory (no thresholds)
 TEST(trajectory, find_nearest_index_CurvedTrajectory)
