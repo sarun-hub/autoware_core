@@ -386,7 +386,7 @@ TEST(trajectory, find_nearest_index_BowTrajectoryManyBases)
     auto query = make_pose(1, 1, yaw);
     auto s_opt = find_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold); // NOW FAILED
+    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);  // NOW FAILED
   }
   // At intersection, first round
   {
@@ -490,7 +490,8 @@ TEST(trajectory, OriginalApproachOnBowTrajectory)
   }
 }
 
-// Test 10: find_first_nearest_index: Two equal distance nearest points at the self-intersecting trajectory (less bases)
+// Test 10: find_first_nearest_index: Two equal distance nearest points at the self-intersecting
+// trajectory (less bases)
 TEST(trajectory, find_first_nearest_index_BowTrajectoryLessBases)
 {
   // ALL FAILED due to small Inaccurate
