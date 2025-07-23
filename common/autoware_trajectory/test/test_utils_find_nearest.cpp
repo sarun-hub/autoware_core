@@ -611,31 +611,36 @@ TEST(trajectory, find_first_nearest_index_Lollipop)
   auto traj = build_lollipop_trajectory(1000, 3);
   {
     auto query = make_pose(1.5, 0, M_PI);
-    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI/3);
+    auto s_opt =
+      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_EQ(*s_opt, 166);
   }
   {
     auto query = make_pose(1.5, 0, 0);
-    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI/3);
+    auto s_opt =
+      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_EQ(*s_opt, 650);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, M_PI);
-    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI/3);
+    auto s_opt =
+      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_EQ(*s_opt, 332);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, M_PI / 2);
-    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI/3);
+    auto s_opt =
+      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_EQ(*s_opt, 452);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, -M_PI / 4);
-    auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI/3);
+    auto s_opt =
+      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_EQ(*s_opt, 601);
   }

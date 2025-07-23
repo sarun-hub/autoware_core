@@ -296,8 +296,8 @@ find_precise_index<autoware_internal_planning_msgs::msg::PathPointWithLaneId>(
   const geometry_msgs::msg::Pose & pose, const double max_dist, const double max_yaw);
 
 // extern template std::optional<double> find_precise_index<geometry_msgs::msg::Point>(
-//   const Trajectory<geometry_msgs::msg::Point> & trajectory, const geometry_msgs::msg::Pose & pose,
-//   const double max_dist, const double max_yaw);
+//   const Trajectory<geometry_msgs::msg::Point> & trajectory, const geometry_msgs::msg::Pose &
+//   pose, const double max_dist, const double max_yaw);
 
 extern template std::optional<double> find_precise_index<geometry_msgs::msg::Pose>(
   const Trajectory<geometry_msgs::msg::Pose> & trajectory, const geometry_msgs::msg::Pose & pose,
