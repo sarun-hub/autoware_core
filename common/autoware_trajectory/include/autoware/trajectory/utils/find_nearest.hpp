@@ -157,26 +157,24 @@ std::optional<double> find_nearest_index(
 }
 
 /**
- * @brief Find the corresponding s value on the trajectory for a given pose.
- * @details Nearest point is determined by performing ternary search between the front
- * and back of baseline points to refine, and return the point with the minimum distance.
+ * @brief find first nearest point index from Trajectory undelying base for a given pose with
+ * distance and yaw constraints (the nearest point index in the first area that constraints are
+ * satisfied.)
  * @param trajectory Continuous trajectory object
  * @param pose given pose
  * @param dist_threshold max distance used to get squared distance for finding the nearest point to
  * given pose
  * @param yaw_threshold max yaw used for finding nearest point to given pose
- * @return distance of nearest point in the trajectory (distance or none if not found)
+ * @return index of nearest point in the trajectory (index or none if not found)
  */
 template <class TrajectoryPointType>
-std::optional<double> find_first_nearest_index(
+std::optional<size_t> find_first_nearest_index(
   const Trajectory<TrajectoryPointType> & trajectory, const geometry_msgs::msg::Pose & pose,
   const double dist_threshold = std::numeric_limits<double>::max(),
   const double yaw_threshold = std::numeric_limits<double>::max())
 {
   std::vector<geometry_msgs::msg::Pose> points;
   const auto & bases = trajectory.get_underlying_bases();
-
-  size_t actual_min_index;
   {
     // Original Approach: Find the first nearest actual index
     const double squared_dist_threshold = dist_threshold * dist_threshold;
@@ -207,20 +205,43 @@ std::optional<double> find_first_nearest_index(
 
     // nearest index is found
     if (is_within_constraints) {
-      actual_min_index = min_idx;
+      return min_idx;
     } else {
       // Cannot find the nearest index within threshold
-      actual_min_index = 0;
       return std::nullopt;
     }
   }
+}
 
-  // Tertiary Search from before and after interval
-  {
+/**
+ * @brief Find the corresponding s value on the trajectory for a given pose.
+ * @details Nearest point is determined by performing ternary search between the front
+ * and back of baseline points to refine, and return the point with the minimum distance.
+ * @param trajectory Continuous trajectory object
+ * @param pose given pose
+ * @param dist_threshold max distance used to get squared distance for finding the nearest point to
+ * given pose
+ * @param yaw_threshold max yaw used for finding nearest point to given pose
+ * @return distance of nearest point in the trajectory (distance or none if not found)
+ */
+template <class TrajectoryPointType>
+std::optional<double> find_precise_index(
+  const Trajectory<TrajectoryPointType> & trajectory, const geometry_msgs::msg::Pose & pose,
+  const double dist_threshold = std::numeric_limits<double>::max(),
+  const double yaw_threshold = std::numeric_limits<double>::max())
+{
+  const auto bases = trajectory.get_underlying_bases();
+  if (bases.empty()) {
+    return std::nullopt;
+  }
+  // Ternary Search from before and after interval
+  auto actual_min_index = find_first_nearest_index(trajectory, pose, dist_threshold, yaw_threshold);
+  if (actual_min_index.has_value()) {
     double squared_dist_threshold = dist_threshold * dist_threshold;
 
-    double search_start = bases[std::max(actual_min_index - 1, 0ul)];
-    double search_end = bases[std::min(actual_min_index + 1, bases.size())];
+    double search_start = (*actual_min_index == 0) ? bases[0ul] : bases[*actual_min_index - 1];
+    double search_end =
+      (*actual_min_index == bases.size() - 1) ? bases[bases.size() - 1]: bases[*actual_min_index + 1];
 
     double min_dist = std::numeric_limits<double>::infinity();
     double min_s = (search_start + search_end) * 0.5;
@@ -268,6 +289,8 @@ std::optional<double> find_first_nearest_index(
       return std::nullopt;
     }
     return min_s;
+  } else {
+    return std::nullopt;
   }
 }
 
