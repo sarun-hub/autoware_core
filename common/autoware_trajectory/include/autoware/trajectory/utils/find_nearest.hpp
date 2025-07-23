@@ -17,7 +17,12 @@
 
 #include "autoware/trajectory/detail/types.hpp"
 #include "autoware/trajectory/forward.hpp"
+#include "autoware/trajectory/path_point.hpp"
+#include "autoware/trajectory/path_point_with_lane_id.hpp"
+#include "autoware/trajectory/point.hpp"
+#include "autoware/trajectory/pose.hpp"
 #include "autoware/trajectory/threshold.hpp"
+#include "autoware/trajectory/trajectory_point.hpp"
 #include "autoware_utils_geometry/geometry.hpp"
 #include "autoware_utils_geometry/pose_deviation.hpp"
 
@@ -38,7 +43,7 @@ template <class TrajectoryPointType>
 [[nodiscard]] std::optional<size_t> find_nearest_index(
   const Trajectory<TrajectoryPointType> & trajectory, const geometry_msgs::msg::Point & point)
 {
-  const auto bases = trajectory.underlying_bases();
+  const auto bases = trajectory.get_underlying_bases();
   if (bases.empty()) {
     return std::nullopt;
   }
@@ -172,8 +177,7 @@ template <class TrajectoryPointType>
       return std::nullopt;
     }
     return min_s;
-  }
-  else {
+  } else {
     return std::nullopt;
   }
 }
@@ -258,6 +262,51 @@ std::optional<double> find_precise_index(
     return std::nullopt;
   }
 }
+
+// Extern template for Point =====================================================================
+extern template std::optional<double> find_precise_index<autoware_planning_msgs::msg::PathPoint>(
+  const Trajectory<autoware_planning_msgs::msg::PathPoint> & trajectory,
+  const geometry_msgs::msg::Point & point);
+
+extern template std::optional<double>
+find_precise_index<autoware_internal_planning_msgs::msg::PathPointWithLaneId>(
+  const Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId> & trajectory,
+  const geometry_msgs::msg::Point & point);
+
+// extern template std::optional<double> find_precise_index<geometry_msgs::msg::Point>(
+//   const Trajectory<geometry_msgs::msg::Point> & trajectory,
+//   const geometry_msgs::msg::Point & point);
+
+extern template std::optional<double> find_precise_index<geometry_msgs::msg::Pose>(
+  const Trajectory<geometry_msgs::msg::Pose> & trajectory, const geometry_msgs::msg::Point & point);
+
+extern template std::optional<double>
+find_precise_index<autoware_planning_msgs::msg::TrajectoryPoint>(
+  const Trajectory<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory,
+  const geometry_msgs::msg::Point & point);
+
+// Extern template for Pose =====================================================================
+extern template std::optional<double> find_precise_index<autoware_planning_msgs::msg::PathPoint>(
+  const Trajectory<autoware_planning_msgs::msg::PathPoint> & trajectory,
+  const geometry_msgs::msg::Pose & pose, const double max_dist, const double max_yaw);
+
+extern template std::optional<double>
+find_precise_index<autoware_internal_planning_msgs::msg::PathPointWithLaneId>(
+  const Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId> & trajectory,
+  const geometry_msgs::msg::Pose & pose, const double max_dist, const double max_yaw);
+
+// extern template std::optional<double> find_precise_index<geometry_msgs::msg::Point>(
+//   const Trajectory<geometry_msgs::msg::Point> & trajectory, const geometry_msgs::msg::Pose & pose,
+//   const double max_dist, const double max_yaw);
+
+extern template std::optional<double> find_precise_index<geometry_msgs::msg::Pose>(
+  const Trajectory<geometry_msgs::msg::Pose> & trajectory, const geometry_msgs::msg::Pose & pose,
+  const double max_dist, const double max_yaw);
+
+extern template std::optional<double>
+find_precise_index<autoware_planning_msgs::msg::TrajectoryPoint>(
+  const Trajectory<autoware_planning_msgs::msg::TrajectoryPoint> & trajectory,
+  const geometry_msgs::msg::Pose & pose, const double max_dist, const double max_yaw);
 
 }  // namespace autoware::experimental::trajectory
 
