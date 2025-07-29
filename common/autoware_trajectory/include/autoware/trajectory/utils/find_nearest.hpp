@@ -79,10 +79,11 @@ std::optional<size_t> find_first_nearest_index(
   const double dist_threshold = std::numeric_limits<double>::max(),
   const double yaw_threshold = std::numeric_limits<double>::max())
 {
+  // Original Approach: Find the first nearest actual index
   std::vector<geometry_msgs::msg::Pose> points;
   const auto & bases = trajectory.get_underlying_bases();
   {
-    // Original Approach: Find the first nearest actual index
+    // For both distance and yaw threshold
     const double squared_dist_threshold = dist_threshold * dist_threshold;
     double min_squared_dist = std::numeric_limits<double>::max();
     size_t min_idx = 0;
@@ -113,11 +114,77 @@ std::optional<size_t> find_first_nearest_index(
     // nearest index is found
     if (is_within_constraints) {
       return min_idx;
-    } else {
-      // Cannot find the nearest index within threshold
-      return std::nullopt;
     }
   }
+
+  {
+    // For only distance threshold (ignore yaw threshold)
+    const double squared_dist_threshold = dist_threshold * dist_threshold;
+    double min_squared_dist = std::numeric_limits<double>::max();
+    size_t min_idx = 0;
+    bool is_within_constraints = false;
+    for (size_t i = 0; i < bases.size(); ++i) {
+      const auto point = trajectory.compute(bases[i]);
+      const auto squared_dist =
+        autoware_utils_geometry::calc_squared_distance2d(point, pose.position);
+
+      if (squared_dist_threshold < squared_dist) {
+        if (is_within_constraints) {
+          break;
+        }
+        continue;
+      }
+
+      if (min_squared_dist <= squared_dist) {
+        continue;
+      }
+
+      min_squared_dist = squared_dist;
+      min_idx = i;
+      is_within_constraints = true;
+    }
+
+    // nearest index is found
+    if (is_within_constraints) {
+      return min_idx;
+    }
+  }
+
+  {
+    // For only yaw threshold (ignore distance threshold)
+    double min_squared_dist = std::numeric_limits<double>::max();
+    size_t min_idx = 0;
+    bool is_within_constraints = false;
+    for (size_t i = 0; i < bases.size(); ++i) {
+      const auto point = trajectory.compute(bases[i]);
+      const auto squared_dist =
+        autoware_utils_geometry::calc_squared_distance2d(point, pose.position);
+      const auto yaw_dev =
+        autoware_utils_geometry::calc_yaw_deviation(autoware_utils_geometry::get_pose(point), pose);
+
+      if (yaw_threshold < std::abs(yaw_dev)) {
+        if (is_within_constraints) {
+          break;
+        }
+        continue;
+      }
+
+      if (min_squared_dist <= squared_dist) {
+        continue;
+      }
+
+      min_squared_dist = squared_dist;
+      min_idx = i;
+      is_within_constraints = true;
+    }
+
+    // nearest index is found
+    if (is_within_constraints) {
+      return min_idx;
+    }
+  }
+
+  return find_nearest_index(trajectory, pose.position);
 }
 
 /**

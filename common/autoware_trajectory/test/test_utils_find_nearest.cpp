@@ -200,8 +200,45 @@ static Trajectory<geometry_msgs::msg::Pose> build_lollipop_trajectory(
   auto traj = Trajectory<geometry_msgs::msg::Pose>::Builder{}.build(raw_poses);
   return traj.value();
 }
-// ======================================== TEST =================================================
-// //
+// ======================================== TEST ============================================//
+
+// Test xx: Point-based queries find_precise_index on a curved trajectory (no threshold)
+
+TEST(trajectory, find_precise_index_Point_CurvedTrajectory)
+{
+  auto traj = build_curved_trajectory(10, 1.0, 0.1);
+  {
+    double true_theta = 5 * 0.1;
+    double tx = 5.0 * std::cos(true_theta);
+    double ty = 5.0 * std::sin(true_theta);
+    double qx = tx + 0.2 * std::cos(true_theta + M_PI / 2.0);
+    double qy = ty + 0.2 * std::sin(true_theta + M_PI / 2.0);
+
+    auto query = create_point(qx, qy, 0);
+    auto s_opt = find_precise_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 5.2850123, k_points_minimum_dist_threshold);
+  }
+
+  {
+    double theta3 = 3 * 0.1;
+    double x3 = 3.0 * std::cos(theta3);
+    double y3 = 3.0 * std::sin(theta3);
+    double theta4 = 4 * 0.1;
+    double x4 = 4.0 * std::cos(theta4);
+    double y4 = 4.0 * std::sin(theta4);
+    double mx = 0.5 * (x3 + x4);
+    double my = 0.5 * (y3 + y4);
+    double avg_theta = 0.5 * (theta3 + theta4);
+    double qx = mx + 0.1 * std::cos(avg_theta + M_PI / 2.0);
+    double qy = my + 0.1 * std::sin(avg_theta + M_PI / 2.0);
+
+    auto query = create_point(qx, qy, 0);
+    auto s_opt = find_precise_index(traj, query);
+    ASSERT_TRUE(s_opt.has_value());
+    EXPECT_NEAR(*s_opt, 3.60253801, k_points_minimum_dist_threshold);
+  }
+}
 
 // Test 1: find_precise_index on a curved trajectory (no thresholds)
 TEST(trajectory, find_precise_index_CurvedTrajectory)
@@ -605,44 +642,39 @@ TEST(trajectory, find_precise_index_VerticalLoop)
   }
 }
 
-// TEST xx: Test Lollipop trajectory find_first_nearest_index
-TEST(trajectory, find_first_nearest_index_Lollipop)
+// TEST xx: Test Lollipop trajectory find_precise_index
+TEST(trajectory, find_precise_index_LollipopTrajectory)
 {
   auto traj = build_lollipop_trajectory(1000, 3);
   {
     auto query = make_pose(1.5, 0, M_PI);
-    auto s_opt =
-      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
+    auto s_opt = find_precise_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_EQ(*s_opt, 166);
+    EXPECT_NEAR(*s_opt, 1.50006, k_points_minimum_dist_threshold);
   }
   {
     auto query = make_pose(1.5, 0, 0);
-    auto s_opt =
-      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
+    auto s_opt = find_precise_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_EQ(*s_opt, 650);
+    EXPECT_NEAR(*s_opt, 19.4914, k_points_minimum_dist_threshold);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, M_PI);
-    auto s_opt =
-      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
+    auto s_opt = find_precise_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_EQ(*s_opt, 332);
+    EXPECT_NEAR(*s_opt, 2.99733, k_points_minimum_dist_threshold);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, M_PI / 2);
-    auto s_opt =
-      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
+    auto s_opt = find_precise_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_EQ(*s_opt, 452);
+    EXPECT_NEAR(*s_opt, 9.14898, k_points_minimum_dist_threshold);
   }
   {
     auto query = make_pose(-(3 * cos(M_PI / 12)), 0, -M_PI / 4);
-    auto s_opt =
-      find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
+    auto s_opt = find_precise_index(traj, query, std::numeric_limits<double>::max(), M_PI / 3);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_EQ(*s_opt, 601);
+    EXPECT_NEAR(*s_opt, 16.9315, k_points_minimum_dist_threshold);
   }
 }
 
