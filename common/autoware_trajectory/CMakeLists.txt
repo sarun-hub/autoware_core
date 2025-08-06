@@ -66,6 +66,7 @@ if(BUILD_TESTING)
     examples/example_readme.cpp
     examples/example_reference_path.cpp
     examples/example_shift.cpp
+    examples/example_self_intersecting.cpp
   )
 
   add_definitions("-Wno-attributes")
