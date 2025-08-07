@@ -288,41 +288,6 @@ visualization_msgs::msg::MarkerArray create_lanelet_polygon_marker_array(
   const std_msgs::msg::ColorRGBA & color, double z = 0.0);
 
 /**
- * @brief create marker array for polygon info from lanelet ConstPolygons3d (from Regulatory
- * Element) for Optional StopLine
- * @param [in] reg_elem_areas lanelet ConstPolygons3d (from Regulatory Element)
- * @param [in] stop_line stop line (from Regulatory Element)
- * @param [in] stamp time stamp of the marker
- * @param [in] ns namespace
- * @param [in] id id of the marker
- * @param [in] scale scale of the marker
- * @param [in] color color of the marker
- * @return marker array of the lanelet ConstPolygons3d (from Regulatory Element)
- */
-visualization_msgs::msg::MarkerArray create_lanelet_polygon_info_marker_array(
-  const lanelet::ConstPolygons3d & reg_elem_areas,
-  const boost::optional<lanelet::ConstLineString3d> & stop_line, const rclcpp::Time & stamp,
-  const std::string & ns_prefix, int32_t id, const geometry_msgs::msg::Vector3 & scale,
-  const std_msgs::msg::ColorRGBA & color);
-
-/**
- * @brief create marker array for polygon info from lanelet ConstPolygons3d (from Regulatory
- * Element) for Mandatory Stopline
- * @param [in] reg_elem_areas lanelet ConstPolygons3d (from Regulatory Element)
- * @param [in] stop_line stop line (from Regulatory Element)
- * @param [in] stamp time stamp of the marker
- * @param [in] ns namespace
- * @param [in] id id of the marker
- * @param [in] scale scale of the marker
- * @param [in] color color of the marker
- * @return marker array of the lanelet ConstPolygons3d (from Regulatory Element)
- */
-visualization_msgs::msg::MarkerArray create_lanelet_polygon_info_marker_array(
-  const lanelet::ConstPolygons3d & reg_elem_areas, const lanelet::ConstLineString3d & stop_line,
-  const rclcpp::Time & stamp, const std::string & ns_prefix, int32_t id,
-  const geometry_msgs::msg::Vector3 & scale, const std_msgs::msg::ColorRGBA & color);
-
-/**
  * @brief create marker array from predicted object
  * @details This function creates a marker array from a PredictedObjects object
  * (initial_pose_with_covariance), draw the vehicle based on initial pose.

@@ -51,24 +51,6 @@ using autoware_utils_visualization::create_marker_color;
 using autoware_utils_visualization::create_marker_position;
 using autoware_utils_visualization::create_marker_scale;
 
-static lanelet::BasicPoint3d get_centroid_point(const lanelet::BasicPolygon3d & poly)
-{
-  lanelet::BasicPoint3d p_sum{0.0, 0.0, 0.0};
-  for (const auto & p : poly) {
-    p_sum += p;
-  }
-  return p_sum / poly.size();
-}
-
-static Point to_msg(const lanelet::BasicPoint3d & point)
-{
-  Point msg;
-  msg.x = point.x();
-  msg.y = point.y();
-  msg.z = point.z();
-  return msg;
-}
-
 inline int64_t bitShift(int64_t original_id)
 {
   return original_id << (sizeof(int32_t) * 8 / 2);
@@ -518,93 +500,6 @@ MarkerArray create_lanelet_polygon_marker_array(
   }
 
   return marker_array;
-}
-
-MarkerArray create_lanelet_polygon_info_marker_array(
-  const lanelet::ConstPolygons3d & reg_elem_areas,
-  const boost::optional<lanelet::ConstLineString3d> & stop_line, const rclcpp::Time & stamp,
-  const std::string & ns_prefix, int32_t id, const Vector3 & scale, const ColorRGBA & color)
-{
-  MarkerArray marker_array;
-
-  // ID
-  {
-    Marker marker_text = create_default_marker(
-      "map", stamp, ns_prefix + "_id", static_cast<int32_t>(id), Marker::TEXT_VIEW_FACING, scale,
-      color);
-
-    for (const auto & area : reg_elem_areas) {
-      const auto poly = area.basicPolygon();
-
-      marker_text.pose.position = to_msg(poly.front());
-      marker_text.pose.position.z += 2.0;
-      marker_text.text = std::to_string(id);
-
-      marker_array.markers.push_back(marker_text);
-    }
-  }
-
-  // Polygon
-  {
-    auto marker = create_default_marker(
-      "map", stamp, ns_prefix + "_polygon", static_cast<int32_t>(id), Marker::LINE_LIST, scale,
-      color);
-
-    for (const auto & area : reg_elem_areas) {
-      const auto poly = area.basicPolygon();
-
-      for (size_t i = 0; i < poly.size(); ++i) {
-        const auto idx_front = i;
-        const auto idx_back = (i == poly.size() - 1) ? 0 : i + 1;
-
-        const auto & p_front = poly.at(idx_front);
-        const auto & p_back = poly.at(idx_back);
-
-        marker.points.push_back(to_msg(p_front));
-        marker.points.push_back(to_msg(p_back));
-      }
-
-      marker_array.markers.push_back(marker);
-    }
-  }
-
-  // Polygon to Stopline
-  {
-    if (stop_line) {
-      const auto stop_line_center_point =
-        (stop_line->front().basicPoint() + stop_line->back().basicPoint()) / 2;
-
-      // TODO(soblin): Now Set to LINE_LIST as default,
-      // but NoStoppingArea uses LINE_STRIP, consider the reason.
-      auto marker = create_default_marker(
-        "map", stamp, ns_prefix + "_correspondence", static_cast<int32_t>(id), Marker::LINE_LIST,
-        scale, color);
-
-      for (auto & area : reg_elem_areas) {
-        const auto poly = area.basicPolygon();
-        const auto centroid_point = get_centroid_point(poly);
-        for (size_t i = 0; i < poly.size(); ++i) {
-          marker.points.push_back(to_msg(centroid_point));
-          marker.points.push_back(to_msg(stop_line_center_point));
-        }
-      }
-      // put all centroid point of all areas msg in one marker
-      marker_array.markers.push_back(marker);
-    }
-  }
-
-  return marker_array;
-}
-
-MarkerArray create_lanelet_polygon_info_marker_array(
-  const lanelet::ConstPolygons3d & reg_elem_areas, const lanelet::ConstLineString3d & stop_line,
-  const rclcpp::Time & stamp, const std::string & ns_prefix, int32_t id, const Vector3 & scale,
-  const ColorRGBA & color)
-{
-  // wrap stop_line with boost::optional
-  return create_lanelet_polygon_info_marker_array(
-    reg_elem_areas, boost::optional<lanelet::ConstLineString3d>{stop_line}, stamp, ns_prefix, id,
-    scale, color);
 }
 
 MarkerArray create_predicted_objects_marker_array(
