@@ -452,9 +452,8 @@ MarkerArray create_lanelet_linestring_marker_array(
   int32_t id, const Vector3 & scale, const ColorRGBA & color, const double z)
 {
   MarkerArray marker_array;
-  int32_t uid;
   for (auto j = 0ul; j < mls.size(); ++j) {
-    uid = id + j;
+    int32_t uid = id + j;
     auto marker = create_linestring_marker(mls[j], stamp, ns, uid, scale, color, z);
     marker_array.markers.push_back(marker);
   }
@@ -599,7 +598,7 @@ MarkerArray create_lanelet_polygon_info_marker_array(
       const auto stop_line_center_point =
         (stop_line->front().basicPoint() + stop_line->back().basicPoint()) / 2;
 
-      // TODO: Now Set to LINE_LIST as default,
+      // TODO(soblin): Now Set to LINE_LIST as default,
       // but NoStoppingArea uses LINE_STRIP, consider the reason.
       auto marker = create_default_marker(
         "map", stamp, ns_prefix + "_correspondence", static_cast<int32_t>(id), Marker::LINE_LIST,
@@ -728,7 +727,7 @@ MarkerArray create_path_with_lane_id_marker_array(
 
   for (const auto & p : path.points) {
     marker.id = uid + i++;
-    // previous set vmarker_lifetime alue = 0.3
+    // previous set marker_lifetime value = 0.3
 
     marker.pose = p.point.pose;
 
