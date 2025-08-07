@@ -194,7 +194,8 @@ static void plot_trajectory_base_with_orientation(
       Args(x, y), Kwargs("color"_a = "black", "label"_a = "Base Point", "marker"_a = "x"));
     plt.quiver(
       Args(x, y, cos_th, sin_th),
-      Kwargs("color"_a = "red", "scale"_a = 30, "label"_a = "Base Point Orientation"));
+      Kwargs(
+        "color"_a = "red", "scale"_a = 30, "label"_a = "Base Point Orientation", "alpha"_a = 0.3));
   } else {
     std::vector<double> skipped_x;
     std::vector<double> skipped_y;
@@ -211,7 +212,8 @@ static void plot_trajectory_base_with_orientation(
       Kwargs("color"_a = "black", "label"_a = "Base Point", "marker"_a = "x"));
     plt.quiver(
       Args(skipped_x, skipped_y, skipped_cos_th, skipped_sin_th),
-      Kwargs("color"_a = "red", "scale"_a = 30, "label"_a = "Base Point Orientation"));
+      Kwargs(
+        "color"_a = "red", "scale"_a = 30, "label"_a = "Base Point Orientation", "alpha"_a = 0.3));
   }
 }
 
