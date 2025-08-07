@@ -55,18 +55,6 @@ visualization_msgs::msg::Marker create_autoware_geometry_marker(
   double z = 0.0);
 
 /**
- * @brief Convert Eigen::Vector3d to geometry_msgs::msg::Point32
- * @param [in] src input point
- */
-geometry_msgs::msg::Point32 to_geom_msg_pt32(const Eigen::Vector3d & src);
-
-/**
- * @brief Convert lanelet polygon (ConstPolygon3d) to geometry_msgs polygon
- * @param [in] ll_poly input ConstPolygon3d polygon
- */
-geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_poly);
-
-/**
  * @brief Make a marker of LineString2d
  * @param [in] ls LineString2d
  * @param [in] stamp time stamp of the marker

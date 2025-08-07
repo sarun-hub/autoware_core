@@ -69,30 +69,6 @@ static Point to_msg(const lanelet::BasicPoint3d & point)
   return msg;
 }
 
-geometry_msgs::msg::Point32 to_geom_msg_pt32(const Eigen::Vector3d & src)
-{
-  geometry_msgs::msg::Point32 dst;
-
-  dst.x = static_cast<float>(src.x());
-  dst.y = static_cast<float>(src.y());
-  dst.z = static_cast<float>(src.z());
-
-  return dst;
-}
-
-geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_poly)
-{
-  geometry_msgs::msg::Polygon geom_poly;
-  geom_poly.points.clear();
-  geom_poly.points.reserve(ll_poly.size());
-  for (const auto & ll_pt : ll_poly) {
-    geometry_msgs::msg::Point32 geom_pt32;
-    geom_pt32 = to_geom_msg_pt32(ll_pt.basicPoint());
-    geom_poly.points.push_back(geom_pt32);
-  }
-  return geom_poly;
-}
-
 inline int64_t bitShift(int64_t original_id)
 {
   return original_id << (sizeof(int32_t) * 8 / 2);

@@ -1024,35 +1024,6 @@ TEST_F(MarkerConversionTest, CreateBoostPolygonMarker)
   }
 }
 
-// Test 33: convert Eigen::Vector3d to geometry_msgs::msg::Point32 and lanelet::ConstPolygon3d to
-// geometry_msgs::msg::Polygon
-TEST_F(MarkerConversionTest, TypeConversionToGeometryMsg)
-{
-  using lanelet::Point3d;
-
-  Eigen::Vector3d test_vector(1.0f, 0.0f, 1.0f);
-  auto point32 = autoware::experimental::marker_utils::to_geom_msg_pt32(test_vector);
-
-  expect_point_eq(point32, 1.0f, 0.0f, 1.0f);
-  EXPECT_TRUE((std::is_same_v<decltype(point32), geometry_msgs::msg::Point32>));
-
-  Point3d p1(lanelet::InvalId, 3.0f, -1.0f, 0.0f);
-  Point3d p2(lanelet::InvalId, 3.0f, 1.0f, 0.0f);
-  Point3d p3(lanelet::InvalId, 5.0f, 1.0f, 1.0f);
-  Point3d p4(lanelet::InvalId, 5.0f, -1.0f, 3.0f);
-
-  lanelet::Polygon3d polygon(lanelet::InvalId, {p1, p2, p3, p4});
-  lanelet::ConstPolygon3d const_polygon{polygon};
-
-  auto geom_polygon = autoware::experimental::marker_utils::to_geom_msg_poly(const_polygon);
-
-  expect_point_eq(geom_polygon.points[0], 3.0f, -1.0f, 0.0f);
-  expect_point_eq(geom_polygon.points[1], 3.0f, 1.0f, 0.0f);
-  expect_point_eq(geom_polygon.points[2], 5.0f, 1.0f, 1.0f);
-  expect_point_eq(geom_polygon.points[3], 5.0f, -1.0f, 3.0f);
-  EXPECT_TRUE((std::is_same_v<decltype(geom_polygon), geometry_msgs::msg::Polygon>));
-}
-
 // Test 34: create_linestring_marker
 TEST_F(MarkerConversionTest, CreateLineStringMarker)
 {
