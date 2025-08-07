@@ -1000,20 +1000,7 @@ TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
   }
 }
 
-// Test 32: check_marker_type_line
-TEST_F(MarkerConversionTest, CheckMarkerTypeLine)
-{
-  using visualization_msgs::msg::Marker;
-  // Other than LINE_LIST and LINE_STRIP
-  EXPECT_NO_THROW(autoware::experimental::marker_utils::check_marker_type_line(Marker::LINE_LIST));
-  EXPECT_NO_THROW(autoware::experimental::marker_utils::check_marker_type_line(Marker::LINE_STRIP));
-
-  EXPECT_THROW(
-    autoware::experimental::marker_utils::check_marker_type_line(Marker::ARROW),
-    std::runtime_error);
-}
-
-// Test 33: confirm boost Polygon2d converts to marker at constant z height
+// Test 32: confirm boost Polygon2d converts to marker at constant z height
 TEST_F(MarkerConversionTest, CreateBoostPolygonMarker)
 {
   using autoware_utils_geometry::Point2d;
@@ -1037,7 +1024,7 @@ TEST_F(MarkerConversionTest, CreateBoostPolygonMarker)
   }
 }
 
-// Test 34: convert Eigen::Vector3d to geometry_msgs::msg::Point32 and lanelet::ConstPolygon3d to
+// Test 33: convert Eigen::Vector3d to geometry_msgs::msg::Point32 and lanelet::ConstPolygon3d to
 // geometry_msgs::msg::Polygon
 TEST_F(MarkerConversionTest, TypeConversionToGeometryMsg)
 {
@@ -1066,7 +1053,7 @@ TEST_F(MarkerConversionTest, TypeConversionToGeometryMsg)
   EXPECT_TRUE((std::is_same_v<decltype(geom_polygon), geometry_msgs::msg::Polygon>));
 }
 
-// Test 35: create_linestring_marker
+// Test 34: create_linestring_marker
 TEST_F(MarkerConversionTest, CreateLineStringMarker)
 {
   using autoware_utils_geometry::Point2d;

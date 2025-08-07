@@ -93,14 +93,6 @@ geometry_msgs::msg::Polygon to_geom_msg_poly(const lanelet::ConstPolygon3d & ll_
   return geom_poly;
 }
 
-void check_marker_type_line(uint32_t marker_type)
-{
-  if (marker_type != Marker::LINE_STRIP && marker_type != Marker::LINE_LIST) {
-    throw std::runtime_error(
-      "Unsupported marker type: only LINE_STRIP and LINE_LIST are supported.");
-  }
-}
-
 inline int64_t bitShift(int64_t original_id)
 {
   return original_id << (sizeof(int32_t) * 8 / 2);
@@ -111,7 +103,6 @@ Marker create_autoware_geometry_marker(
   const std::string & ns, int32_t id, uint32_t marker_type, const Vector3 & scale,
   const ColorRGBA & color, double z)
 {
-  check_marker_type_line(marker_type);
   Marker marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
   if (marker_type == Marker::LINE_LIST) {
@@ -137,6 +128,13 @@ Marker create_autoware_geometry_marker(
       pt.z = z;
       marker.points.push_back(pt);
     }
+  } else {
+    RCLCPP_WARN(
+      rclcpp::get_logger("autoware_marker_utils").get_child("marker_conversion"),
+      "Unsupported marker type: only LINE_STRIP and LINE_LIST are supported.");
+    // return null Marker
+    marker.action = Marker::DELETE;
+    return marker;
   }
   return marker;
 }
@@ -193,8 +191,6 @@ MarkerArray create_autoware_geometry_marker_array(
   const geometry_msgs::msg::Polygon & polygon, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color)
 {
-  check_marker_type_line(marker_type);
-
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
@@ -231,7 +227,10 @@ MarkerArray create_autoware_geometry_marker_array(
       marker.points.push_back(marker.points.front());
     }
   } else {
-    // return null marker array, but should not have this case
+    RCLCPP_WARN(
+      rclcpp::get_logger("autoware_marker_utils").get_child("marker_conversion"),
+      "Unsupported marker type: only LINE_STRIP and LINE_LIST are supported.");
+    // return null MarkerArray
     return marker_array;
   }
 
@@ -502,8 +501,6 @@ MarkerArray create_lanelet_polygon_marker_array(
   const lanelet::BasicPolygons2d & polygons, const rclcpp::Time & stamp, const std::string & ns,
   int32_t id, uint32_t marker_type, const Vector3 & scale, const ColorRGBA & color, double z)
 {
-  check_marker_type_line(marker_type);
-
   MarkerArray marker_array;
   auto marker = create_default_marker("map", stamp, ns, id, marker_type, scale, color);
 
@@ -537,7 +534,10 @@ MarkerArray create_lanelet_polygon_marker_array(
       marker.points.clear();
     }
   } else {
-    // return null marker array, but should not have this case
+    RCLCPP_WARN(
+      rclcpp::get_logger("autoware_marker_utils").get_child("marker_conversion"),
+      "Unsupported marker type: only LINE_STRIP and LINE_LIST are supported.");
+    // return null MarkerArray
     return marker_array;
   }
 
