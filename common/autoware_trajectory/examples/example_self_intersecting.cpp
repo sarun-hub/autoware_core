@@ -23,7 +23,10 @@
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
 
+#include <algorithm>
 #include <iostream>
+#include <limits>
+#include <string>
 #include <vector>
 
 using autoware::experimental::trajectory::Trajectory;
@@ -158,7 +161,7 @@ static Trajectory<geometry_msgs::msg::Pose> build_lollipop_trajectory(
 template <class TrajectoryPointType>
 static void plot_trajectory(
   autoware::pyplot::PyPlot & plt, const Trajectory<TrajectoryPointType> & traj,
-  const std::string traj_name)
+  const std::string & traj_name)
 {
   std::vector<double> x_all;
   std::vector<double> y_all;
@@ -181,8 +184,10 @@ static void plot_trajectory_base_with_orientation(
   const auto s = traj.get_underlying_bases();
 
   const auto c = traj.compute(s);
-  const auto x = c | transform([](auto & point) { return point.position.x; }) | to<std::vector>();
-  const auto y = c | transform([](auto & point) { return point.position.y; }) | to<std::vector>();
+  const auto x =
+    c | transform([](const auto & point) { return point.position.x; }) | to<std::vector>();
+  const auto y =
+    c | transform([](const auto & point) { return point.position.y; }) | to<std::vector>();
 
   const auto th =
     c | transform([](const auto & quat) { return autoware_utils_geometry::get_rpy(quat).z; }) |
@@ -201,7 +206,7 @@ static void plot_trajectory_base_with_orientation(
     std::vector<double> skipped_y;
     std::vector<double> skipped_cos_th;
     std::vector<double> skipped_sin_th;
-    for (size_t i = 0; i < x.size(); i += int(x.size() / 20)) {
+    for (size_t i = 0; i < x.size(); i += static_cast<int>(x.size() / 20)) {
       skipped_x.push_back(x[i]);
       skipped_y.push_back(y[i]);
       skipped_cos_th.push_back(cos_th[i]);
@@ -218,15 +223,15 @@ static void plot_trajectory_base_with_orientation(
 }
 
 static void plot_queries_pose(
-  autoware::pyplot::PyPlot & plt, const std::vector<geometry_msgs::msg::Pose> queries,
-  const std::vector<std::string> yaws)
+  autoware::pyplot::PyPlot & plt, const std::vector<geometry_msgs::msg::Pose> & queries,
+  const std::vector<std::string> & yaws)
 {
   assert(queries.size() == yaws.size());
   std::vector<std::string> colors{"orange", "purple", "cyan", "brown", "magenta"};
   const auto x =
-    queries | transform([](auto & pose) { return pose.position.x; }) | to<std::vector>();
+    queries | transform([](const auto & pose) { return pose.position.x; }) | to<std::vector>();
   const auto y =
-    queries | transform([](auto & pose) { return pose.position.y; }) | to<std::vector>();
+    queries | transform([](const auto & pose) { return pose.position.y; }) | to<std::vector>();
   const auto yaw = queries |
                    transform([](auto & pose) { return autoware_utils_geometry::get_rpy(pose).z; }) |
                    to<std::vector>();
@@ -248,13 +253,15 @@ static void plot_queries_pose(
 template <class TrajectoryPointType>
 static void plot_nearest_point(
   autoware::pyplot::PyPlot & plt, const Trajectory<TrajectoryPointType> & traj,
-  const std::vector<double> nearest_points)
+  const std::vector<double> & nearest_points)
 {
   std::vector<std::string> colors{"orange", "purple", "cyan", "brown", "magenta"};
   const auto c = traj.compute(nearest_points);
 
-  const auto x = c | transform([](auto & point) { return point.position.x; }) | to<std::vector>();
-  const auto y = c | transform([](auto & point) { return point.position.y; }) | to<std::vector>();
+  const auto x =
+    c | transform([](const auto & point) { return point.position.x; }) | to<std::vector>();
+  const auto y =
+    c | transform([](const auto & point) { return point.position.y; }) | to<std::vector>();
 
   for (size_t i = 0; i < x.size(); ++i) {
     std::string label = "Nearest Point of Query point" + std::to_string(i);
