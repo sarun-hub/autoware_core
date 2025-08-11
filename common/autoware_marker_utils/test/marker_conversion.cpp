@@ -90,7 +90,7 @@ void expect_point_eq(const PointT & p, double x, double y)
 }
 
 // Test 1: verify LINE_STRIP marker closes polygon by repeating first point
-TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
+TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLINESTRIP)
 {
   geometry_msgs::msg::Polygon poly;
   poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
@@ -112,7 +112,7 @@ TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineStrip)
 }
 
 // Test 2: verify LINE_LIST marker draws each edge as separate line segments
-TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLineList)
+TEST_F(MarkerConversionTest, MakeMarkerFromPolygonLINELIST)
 {
   geometry_msgs::msg::Polygon poly;
   poly.points.push_back(make_point(0.0f, 0.0f, 0.0f));
@@ -805,8 +805,8 @@ TEST_F(MarkerConversionTest, CreateVehicleTrajectoryPointMarkerArray)
   }
 }
 
-// Test 27: confirm boost Polygon2d converts to marker at constant z height
-TEST_F(MarkerConversionTest, CreateBoostPolygonMarker)
+// Test 27: confirm boost Polygon2d converts to marker at constant z height (LINE_STRIP)
+TEST_F(MarkerConversionTest, CreateBoostPolygonMarkerLINESTRIP)
 {
   using autoware_utils_geometry::Point2d;
   using autoware_utils_geometry::Polygon2d;
@@ -829,7 +829,33 @@ TEST_F(MarkerConversionTest, CreateBoostPolygonMarker)
   }
 }
 
-// Test 28: create_linestring_marker
+// Test 28: confirm boost Polygon2d converts to marker at constant z height (LINE_LIST)
+TEST_F(MarkerConversionTest, CreateBoostPolygonMarkerLINELIST)
+{
+  using autoware_utils_geometry::Point2d;
+  using autoware_utils_geometry::Polygon2d;
+
+  Polygon2d poly;
+  auto & ring = poly.outer();
+  ring.push_back(Point2d{0.0, 0.0});
+  ring.push_back(Point2d{1.0, 0.0});
+  ring.push_back(Point2d{1.0, 1.0});
+
+  double z = 1.5;
+  auto marker = autoware::experimental::marker_utils::create_autoware_geometry_marker(
+    poly, now, "map", 0, visualization_msgs::msg::Marker::LINE_LIST,
+    create_marker_scale(0.1, 0.1, 0.1), color_, z);
+
+  const auto & pts = marker.points;
+  EXPECT_EQ(pts.size(), ring.size() * 2);
+  for (size_t i = 0; i < ring.size(); ++i) {
+    expect_point_eq(pts[2 * i], ring[i].x(), ring[i].y(), z);
+    expect_point_eq(
+      pts[2 * i + 1], ring[(i + 1) % ring.size()].x(), ring[(i + 1) % ring.size()].y(), z);
+  }
+}
+
+// Test 29: create_linestring_marker
 TEST_F(MarkerConversionTest, CreateLineStringMarker)
 {
   using autoware_utils_geometry::Point2d;
