@@ -305,7 +305,7 @@ int main()
     plot_queries_pose(plt, queries, yaws);
 
     for (const auto & q : queries) {
-      auto s_opt = find_precise_index(traj, q, std::numeric_limits<double>::max(), 0.4);
+      auto s_opt = find_first_nearest_index(traj, q, std::numeric_limits<double>::max(), 0.4);
       double s_nearest = *s_opt;
       s_nearests.push_back(s_nearest);
     }
@@ -350,7 +350,7 @@ int main()
     plot_queries_pose(plt, queries, yaws);
 
     for (const auto & q : queries) {
-      auto s_opt = find_precise_index(traj, q, std::numeric_limits<double>::max(), 0.4);
+      auto s_opt = find_first_nearest_index(traj, q, std::numeric_limits<double>::max(), 0.4);
       double s_nearest = *s_opt;
       s_nearests.push_back(s_nearest);
     }
@@ -401,7 +401,7 @@ int main()
     plot_queries_pose(plt, queries, yaws);
 
     for (const auto & q : queries) {
-      auto s_opt = find_precise_index(traj, q, std::numeric_limits<double>::max(), M_PI / 3);
+      auto s_opt = find_first_nearest_index(traj, q, std::numeric_limits<double>::max(), M_PI / 3);
       double s_nearest = *s_opt;
       s_nearests.push_back(s_nearest);
     }
