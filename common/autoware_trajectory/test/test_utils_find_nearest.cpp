@@ -203,7 +203,7 @@ static Trajectory<geometry_msgs::msg::Pose> build_lollipop_trajectory(
 }
 // ======================================== TEST ============================================//
 
-// Test xx: Point-based queries find_nearest_index on a curved trajectory (no threshold)
+// Test 1: Point-based queries find_nearest_index on a curved trajectory (no threshold)
 TEST(trajectory, find_nearest_index_Point_CurvedTrajectory)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -216,8 +216,7 @@ TEST(trajectory, find_nearest_index_Point_CurvedTrajectory)
 
     auto query = create_point(qx, qy, 0);
     auto s_opt = find_nearest_index(traj, query);
-    ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 5.2850123, k_points_minimum_dist_threshold);
+    EXPECT_NEAR(s_opt, 5.2850123, k_points_minimum_dist_threshold);
   }
 
   {
@@ -235,12 +234,11 @@ TEST(trajectory, find_nearest_index_Point_CurvedTrajectory)
 
     auto query = create_point(qx, qy, 0);
     auto s_opt = find_nearest_index(traj, query);
-    ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 3.60253801, k_points_minimum_dist_threshold);
+    EXPECT_NEAR(s_opt, 3.60253801, k_points_minimum_dist_threshold);
   }
 }
 
-// Test 1: find_first_nearest_index on a curved trajectory (no thresholds)
+// Test 2: find_first_nearest_index on a curved trajectory (no thresholds)
 TEST(trajectory, find_first_nearest_index_CurvedTrajectory)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -278,7 +276,7 @@ TEST(trajectory, find_first_nearest_index_CurvedTrajectory)
   }
 }
 
-// Test 2: Pose-based queries on curved trajectory with no threshold
+// Test 3: Pose-based queries on curved trajectory with no threshold
 TEST(trajectory, find_first_nearest_index_Pose_NoThreshold)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -332,7 +330,7 @@ TEST(trajectory, find_first_nearest_index_Pose_NoThreshold)
   }
 }
 
-// Test 3: Pose-based queries on curved trajectory with distance threshold
+// Test 4: Pose-based queries on curved trajectory with distance threshold
 TEST(trajectory, find_first_nearest_index_Pose_DistThreshold)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -375,7 +373,7 @@ TEST(trajectory, find_first_nearest_index_Pose_YawThreshold)
   }
 }
 
-// Test 4: Pose-based queries on curved trajectory with both distance & yaw thresholds
+// Test 5: Pose-based queries on curved trajectory with both distance & yaw thresholds
 TEST(trajectory, find_first_nearest_index_Pose_DistAndYawThreshold)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -396,7 +394,7 @@ TEST(trajectory, find_first_nearest_index_Pose_DistAndYawThreshold)
   }
 }
 
-// Test 5: Pose-based queries on curved trajectory with both distance & yaw thresholds
+// Test 6: Pose-based queries on curved trajectory with both distance & yaw thresholds
 TEST(trajectory, find_first_nearest_index_Pose_TwoMinimaDistAndYawThreshold)
 {
   auto traj = build_curved_trajectory(10, 1.0, 0.1);
@@ -417,7 +415,7 @@ TEST(trajectory, find_first_nearest_index_Pose_TwoMinimaDistAndYawThreshold)
   }
 }
 
-// Test 6: Two equal distance nearest points on a parabolic trajectory
+// Test 7: Two equal distance nearest points on a parabolic trajectory
 TEST(trajectory, find_first_nearest_index_ParabolicTrajectory_AboveMinima)
 {
   auto traj = build_parabolic_trajectory(11, 1.0);
@@ -430,7 +428,7 @@ TEST(trajectory, find_first_nearest_index_ParabolicTrajectory_AboveMinima)
   }
 }
 
-// Test 7: Two equal distance nearest points at the self-intersecting trajectory (less bases)
+// Test 8: Two equal distance nearest points at the self-intersecting trajectory (less bases)
 TEST(trajectory, find_first_nearest_index_BowTrajectoryLessBases)
 {
   // ALL FAILED WITH SMALL INACCURATE
@@ -461,7 +459,7 @@ TEST(trajectory, find_first_nearest_index_BowTrajectoryLessBases)
   }
 }
 
-// Test 8: Two equal distance nearest points at the self-intersecting trajectory (many bases)
+// Test 9: Two equal distance nearest points at the self-intersecting trajectory (many bases)
 TEST(trajectory, find_first_nearest_index_BowTrajectoryManyBases)
 {
   auto traj = build_bow_trajectory(1000, 3, 1.5 * M_PI);
@@ -470,7 +468,7 @@ TEST(trajectory, find_first_nearest_index_BowTrajectoryManyBases)
     auto query = make_pose(1, 1, yaw);
     auto s_opt = find_first_nearest_index(traj, query);
     ASSERT_TRUE(s_opt.has_value());
-    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);  // NOW FAILED
+    EXPECT_NEAR(*s_opt, 1.2381368903716181, k_points_minimum_dist_threshold);
   }
   // At intersection, first round
   {
@@ -488,89 +486,6 @@ TEST(trajectory, find_first_nearest_index_BowTrajectoryManyBases)
     auto s_opt = find_first_nearest_index(traj, query, std::numeric_limits<double>::max(), 1.046);
     ASSERT_TRUE(s_opt.has_value());
     EXPECT_NEAR(*s_opt, 11.760225108845566, k_points_minimum_dist_threshold);
-  }
-}
-
-// Test 9: Original Approach on bow trajectory
-TEST(trajectory, OriginalApproachOnBowTrajectory)
-{
-  {
-    auto traj = build_bow_trajectory(10, 3, 1.5 * M_PI);
-    std::vector<geometry_msgs::msg::Pose> points;
-    for (double s : traj.get_underlying_bases()) {
-      auto p = traj.compute(s);
-      points.push_back(p);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
-      auto query = make_pose(1, 1, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 1u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 2u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 8u);
-    }
-  }
-  {
-    auto traj = build_bow_trajectory(100, 3, 1.5 * M_PI);
-    std::vector<geometry_msgs::msg::Pose> points;
-    for (double s : traj.get_underlying_bases()) {
-      auto p = traj.compute(s);
-      points.push_back(p);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
-      auto query = make_pose(1, 1, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 9u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 17u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 83u);
-    }
-  }
-  {
-    auto traj = build_bow_trajectory(1000, 3, 1.5 * M_PI);
-    std::vector<geometry_msgs::msg::Pose> points;
-    for (double s : traj.get_underlying_bases()) {
-      auto p = traj.compute(s);
-      points.push_back(p);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw_from_x(1);
-      auto query = make_pose(1, 1, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 92u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI / 2);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 168u);
-    }
-    {
-      auto yaw = calculate_bow_trajectory_yaw(M_PI * 1.5);
-      auto query = make_pose(-0.05, 0, yaw);
-      auto min_index = findFirstNearestIndexWithSoftConstraints(points, query, 2.0, 1.046);
-      EXPECT_EQ(min_index, 832u);
-    }
   }
 }
 
@@ -642,7 +557,7 @@ TEST(trajectory, find_first_nearest_index_VerticalLoop)
   }
 }
 
-// TEST xx: Test Lollipop trajectory find_first_nearest_index
+// TEST 11: Test Lollipop trajectory find_first_nearest_index
 TEST(trajectory, find_first_nearest_index_LollipopTrajectory)
 {
   auto traj = build_lollipop_trajectory(1000, 3);
