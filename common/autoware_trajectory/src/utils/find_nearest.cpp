@@ -32,10 +32,6 @@ template double find_nearest_index<autoware_internal_planning_msgs::msg::PathPoi
   const Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId> & trajectory,
   const geometry_msgs::msg::Point & point);
 
-// template double find_nearest_index<geometry_msgs::msg::Point>(
-//   const Trajectory<geometry_msgs::msg::Point> & trajectory,
-//   const geometry_msgs::msg::Point & point);
-
 template double find_nearest_index<geometry_msgs::msg::Pose>(
   const Trajectory<geometry_msgs::msg::Pose> & trajectory, const geometry_msgs::msg::Point & point);
 
@@ -52,10 +48,6 @@ template std::optional<double>
 find_first_nearest_index<autoware_internal_planning_msgs::msg::PathPointWithLaneId>(
   const Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId> & trajectory,
   const geometry_msgs::msg::Pose & pose, const double max_dist, const double max_yaw);
-
-// template std::optional<double> find_first_nearest_index<geometry_msgs::msg::Point>(
-//   const Trajectory<geometry_msgs::msg::Point> & trajectory, const geometry_msgs::msg::Pose &
-//   pose, const double max_dist, const double max_yaw);
 
 template std::optional<double> find_first_nearest_index<geometry_msgs::msg::Pose>(
   const Trajectory<geometry_msgs::msg::Pose> & trajectory, const geometry_msgs::msg::Pose & pose,
