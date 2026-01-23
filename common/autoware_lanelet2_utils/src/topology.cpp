@@ -31,10 +31,10 @@ std::optional<lanelet::ConstLanelet> left_lanelet(
 {
   if (const auto left_lane = routing_graph->left(lanelet)) {
     // lane changeable
-    return *left_lane;
+    return left_lane.get();
   }
   if (const auto adjacent_left_lane = routing_graph->adjacentLeft(lanelet)) {
-    return *adjacent_left_lane;
+    return adjacent_left_lane.get();
   }
   return std::nullopt;
 }
@@ -62,10 +62,10 @@ std::optional<lanelet::ConstLanelet> right_lanelet(
 {
   if (const auto right_lane = routing_graph->right(lanelet)) {
     // lane changeable
-    return *right_lane;
+    return right_lane.get();
   }
   if (const auto adjacent_right_lane = routing_graph->adjacentRight(lanelet)) {
-    return *adjacent_right_lane;
+    return adjacent_right_lane.get();
   }
   return std::nullopt;
 }
