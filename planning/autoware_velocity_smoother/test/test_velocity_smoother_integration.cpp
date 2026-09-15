@@ -79,7 +79,7 @@ protected:
 
     // Subs
     sub_traj_ = harness_node_->create_subscription<Trajectory>(
-      "/velocity_smoother/input/trajectory", 1,
+      "/velocity_smoother/output/trajectory", 1,
       [this](const Trajectory::ConstSharedPtr msg) { latest_traj_ = msg; });
   };
 
@@ -111,28 +111,69 @@ protected:
   }
 
   // ======================= MOCK TRAJECTORY GENERATOR =========================
+  // Straight Trajectory
+  static Trajectory create_mock_straight_trajectory(const double velocity = 5.0)
+  {
+    return autoware::test_utils::generateTrajectory<Trajectory>(10, 1.0, velocity);
+  }
+
+  // Curved Trajectory
+  static Trajectory create_mock_curved_trajectory(const double velocity = 5.0)
+  {
+    return autoware::test_utils::generateTrajectory<Trajectory>(10, 1.0, velocity, 0.0, M_PI / 18);
+  }
+
+  // Stopping Trajectory (with deceleration ramp)
+  static Trajectory create_mock_stopping_trajectory(const double init_velocity = 5.0)
+  {
+    const size_t num_points = 10;
+    const double point_interval = 1.0;
+    const double final_velocity = 0.0;
+    const double theta = 0.0;
+    const double velocity_interval = (final_velocity - init_velocity) / num_points;
+    Trajectory traj;
+    traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+    for (size_t i = 0; i < num_points; ++i) {
+      const double x = static_cast<double>(i) * point_interval * std::cos(theta);
+      const double y = static_cast<double>(i) * point_interval * std::sin(theta);
+
+      double velocity = init_velocity + velocity_interval * static_cast<double>(i);
+      TrajectoryPoint p;
+      p.pose = autoware::test_utils::createPose(x, y, 0.0, 0.0, 0.0, theta);
+      p.longitudinal_velocity_mps = velocity;
+      traj.points.push_back(p);
+    }
+
+    return traj;
+  }
+
+  // Self-intersecting Trajectory (TBD)
 
   // =========================== PUBLISH HELPERS ===============================
 
-  static nav_msgs::msg::Odometry set_start_odom()
+  static nav_msgs::msg::Odometry set_start_odom(double velocity = 5.0)
   {
+    // set pose position at (0.0 ,0.0 ,0.0) with quaternion (0.0, 0.0, 0.0, 1.0)
     nav_msgs::msg::Odometry odom;
     odom.header.frame_id = "map";
 
     // A bit forward velocity
-    odom.twist.twist.linear.x = 5.0;
+    odom.twist.twist.linear.x = velocity;
 
     return odom;
   }
 
   void retrigger_pubs_spin(
-    const std::optional<nav_msgs::msg::Odometry> & odom,
+    const std::optional<Trajectory> & traj, const std::optional<nav_msgs::msg::Odometry> & odom,
     const std::optional<autoware_internal_planning_msgs::msg::VelocityLimit> &
       external_velocity_limit,
     const std::optional<autoware_adapi_v1_msgs::msg::OperationModeState> & operation_mode,
     const std::optional<geometry_msgs::msg::AccelWithCovarianceStamped> & acceleration,
     std::chrono::milliseconds spin_time)
   {
+    if (traj.has_value()) {
+      pub_traj_->publish(traj.value());
+    }
     if (odom.has_value()) {
       pub_odom_->publish(odom.value());
     }
@@ -171,7 +212,57 @@ protected:
 // TEST 1:
 TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
 {
+  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
+  operation_mode.mode = OperationModeState::AUTONOMOUS;
+  operation_mode.is_autoware_control_enabled = true;
+  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
+  current_acceleration.accel.accel.linear.x = 0.0;
+
+  {
+    Trajectory input_traj = create_mock_straight_trajectory(10.0);
+    auto odom = set_start_odom();
+
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory";
+
+    ASSERT_FALSE(latest_traj_->points.empty());
+    for (const auto & pt : latest_traj_->points) {
+      // less than ego velocity (odom)
+      EXPECT_LE(pt.longitudinal_velocity_mps, 5.0);
+    }
+    // last value is 0.0
+    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, 1e-2);
+  }
+
+  // check exceeding velocity
+  {
+    latest_traj_ = nullptr;
+    auto odom = set_start_odom(15.0);
+    Trajectory input_traj = create_mock_straight_trajectory(10.0);
+    const double tol = 1e-2;
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory";
+
+    ASSERT_FALSE(latest_traj_->points.empty());
+    for (const auto & pt : latest_traj_->points) {
+      // less than maximum velocity (in config)
+      EXPECT_LE(pt.longitudinal_velocity_mps, 11.1 + tol);
+    }
+    // last value is 0.0
+    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, 1e-2);
+  }
 }
+
 // TEST 2:
 TEST_F(VelocitySmootherIntegrationHarness, VelocityConstraintRespect)
 {
