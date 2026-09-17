@@ -114,20 +114,21 @@ protected:
   // Straight Trajectory
   static Trajectory create_mock_straight_trajectory(const double velocity = 5.0)
   {
-    return autoware::test_utils::generateTrajectory<Trajectory>(10, 1.0, velocity);
+    return autoware::test_utils::generateTrajectory<Trajectory>(100, 2.0, velocity);
   }
 
   // Curved Trajectory
   static Trajectory create_mock_curved_trajectory(const double velocity = 5.0)
   {
-    return autoware::test_utils::generateTrajectory<Trajectory>(10, 1.0, velocity, 0.0, M_PI / 18);
+    return autoware::test_utils::generateTrajectory<Trajectory>(
+      100, 2.0, velocity, 0.0, M_PI / 180);
   }
 
   // Stopping Trajectory (with deceleration ramp)
   static Trajectory create_mock_stopping_trajectory(const double init_velocity = 5.0)
   {
-    const size_t num_points = 10;
-    const double point_interval = 1.0;
+    const size_t num_points = 100;
+    const double point_interval = 2.0;
     const double final_velocity = 0.0;
     const double theta = 0.0;
     const double velocity_interval = (final_velocity - init_velocity) / num_points;
