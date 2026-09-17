@@ -81,6 +81,12 @@ protected:
     sub_traj_ = harness_node_->create_subscription<Trajectory>(
       "/velocity_smoother/output/trajectory", 1,
       [this](const Trajectory::ConstSharedPtr msg) { latest_traj_ = msg; });
+    sub_vel_limit_ =
+      harness_node_->create_subscription<autoware_internal_planning_msgs::msg::VelocityLimit>(
+        "/velocity_smoother/output/current_velocity_limit_mps", rclcpp::QoS(1).transient_local(),
+        [this](const autoware_internal_planning_msgs::msg::VelocityLimit::ConstSharedPtr msg) {
+          latest_vel_limit_ = msg;
+        });
   };
 
   void TearDown() override { rclcpp::shutdown(); }
@@ -205,14 +211,54 @@ protected:
 
   // Output Storages
   Trajectory::ConstSharedPtr latest_traj_{nullptr};
+  autoware_internal_planning_msgs::msg::VelocityLimit::ConstSharedPtr latest_vel_limit_{nullptr};
 
   // Subs
   rclcpp::Subscription<Trajectory>::SharedPtr sub_traj_;
+  rclcpp::Subscription<autoware_internal_planning_msgs::msg::VelocityLimit>::SharedPtr
+    sub_vel_limit_;
 };
+
+// =========================== TEST HELPER =================================
+// Check velocity bound and terminal stop
+static void check_velocity_bound(
+  const Trajectory::ConstSharedPtr & traj, const double start_velocity, const double max_velocity)
+{
+  constexpr auto tol = 1e-3;
+  ASSERT_FALSE(traj->points.empty());
+  EXPECT_NEAR(traj->points.front().longitudinal_velocity_mps, start_velocity, tol);
+  for (const auto & pt : traj->points) {
+    EXPECT_GE(pt.longitudinal_velocity_mps, 0.0);
+    // less than input maximum velocity (odom velocity, or node's max velocity)
+    EXPECT_LE(pt.longitudinal_velocity_mps, max_velocity + tol);
+  }
+  // last value is 0.0
+  EXPECT_NEAR(traj->points.back().longitudinal_velocity_mps, 0.0, tol);
+}
+
+// Check acceleration bound
+static void check_acceleration_bound(
+  const Trajectory::ConstSharedPtr & traj, const double max_acc, const double min_acc)
+{
+  constexpr auto tol = 1e-3;
+  ASSERT_FALSE(traj->points.empty());
+  for (const auto & pt : traj->points) {
+    // within acceleration bound
+    EXPECT_GE(pt.acceleration_mps2, min_acc - tol);
+    EXPECT_LE(pt.acceleration_mps2, max_acc + tol);
+  }
+}
 
 // TEST 1:
 TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
 {
+  ASSERT_TRUE(
+    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
+    << "Node failed to output latest velocity limit.";
+
+  // check constructor max velocity (from config)
+  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+
   autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
   operation_mode.mode = OperationModeState::AUTONOMOUS;
   operation_mode.is_autoware_control_enabled = true;
@@ -220,8 +266,8 @@ TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
   current_acceleration.accel.accel.linear.x = 0.0;
 
   {
-    Trajectory input_traj = create_mock_straight_trajectory(10.0);
-    auto odom = set_start_odom();
+    Trajectory input_traj = create_mock_straight_trajectory(10);
+    auto odom = set_start_odom(5.0);
 
     retrigger_pubs_spin(
       input_traj, odom, std::nullopt, operation_mode, current_acceleration,
@@ -229,38 +275,113 @@ TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
 
     ASSERT_TRUE(
       wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
+      << "Node failed to output Smoothed Trajectory.";
 
-    ASSERT_FALSE(latest_traj_->points.empty());
-    for (const auto & pt : latest_traj_->points) {
-      // less than ego velocity (odom)
-      EXPECT_LE(pt.longitudinal_velocity_mps, 5.0);
-    }
-    // last value is 0.0
-    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, 1e-2);
+    // check start from 5.0 and less than 10.0 (target)
+    check_velocity_bound(latest_traj_, 5.0, 10.0);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
   }
 
   // check exceeding velocity
   {
     latest_traj_ = nullptr;
-    auto odom = set_start_odom(15.0);
-    Trajectory input_traj = create_mock_straight_trajectory(10.0);
-    const double tol = 1e-2;
+    auto odom = set_start_odom(5.0);
+    Trajectory input_traj = create_mock_straight_trajectory(30.0);
     retrigger_pubs_spin(
       input_traj, odom, std::nullopt, operation_mode, current_acceleration,
       std::chrono::milliseconds(100));
 
     ASSERT_TRUE(
       wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
+      << "Node failed to output Smoothed Trajectory.";
 
-    ASSERT_FALSE(latest_traj_->points.empty());
-    for (const auto & pt : latest_traj_->points) {
-      // less than maximum velocity (in config)
-      EXPECT_LE(pt.longitudinal_velocity_mps, 11.1 + tol);
-    }
-    // last value is 0.0
-    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, 1e-2);
+    // check start from 5.0 and less than config maximum velocity (11.1)
+    check_velocity_bound(latest_traj_, 5.0, 11.1);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
+  }
+
+  // Curved Trajectory (v_target = 10)
+  {
+    latest_traj_ = nullptr;
+    auto odom = set_start_odom(5.0);
+    Trajectory input_traj = create_mock_curved_trajectory(10.0);
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory.";
+
+    // check start from 5.0 and less than target (10.0)
+    check_velocity_bound(latest_traj_, 5.0, 10.0);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
+  }
+
+  // Curved Trajectory (v_target = 30)
+  {
+    latest_traj_ = nullptr;
+    auto odom = set_start_odom(5.0);
+    Trajectory input_traj = create_mock_curved_trajectory(30.0);
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory.";
+
+    // check start from 5.0 and less than config maximum velocity (11.1)
+    check_velocity_bound(latest_traj_, 5.0, 11.1);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
+  }
+
+  // Stopping Trajectory (v_target = 10)
+  {
+    latest_traj_ = nullptr;
+    auto odom = set_start_odom(5.0);
+    Trajectory input_traj = create_mock_stopping_trajectory(10.0);
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory.";
+
+    // check start from 5.0 and less than target (10.0)
+    check_velocity_bound(latest_traj_, 5.0, 10.0);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
+  }
+
+  // Stopping Trajectory (v_target = 30)
+  {
+    latest_traj_ = nullptr;
+    auto odom = set_start_odom(5.0);
+    Trajectory input_traj = create_mock_stopping_trajectory(30.0);
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory.";
+
+    // check start from 5.0 and less than config maximum velocity (11.1)
+    check_velocity_bound(latest_traj_, 5.0, 11.1);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
   }
 }
 
