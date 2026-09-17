@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 
 namespace autoware::velocity_smoother
@@ -131,20 +132,23 @@ protected:
   }
 
   // Stopping Trajectory (with deceleration ramp)
-  static Trajectory create_mock_stopping_trajectory(const double init_velocity = 5.0)
+  static Trajectory create_mock_stopping_trajectory(
+    const double init_velocity = 5.0, const size_t stopping_range = 0.0)
   {
     const size_t num_points = 100;
     const double point_interval = 2.0;
     const double final_velocity = 0.0;
     const double theta = 0.0;
-    const double velocity_interval = (final_velocity - init_velocity) / num_points;
+    const double velocity_interval =
+      (final_velocity - init_velocity) / (num_points - stopping_range);
     Trajectory traj;
+    traj.header.frame_id = "map";
     traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
     for (size_t i = 0; i < num_points; ++i) {
       const double x = static_cast<double>(i) * point_interval * std::cos(theta);
       const double y = static_cast<double>(i) * point_interval * std::sin(theta);
 
-      double velocity = init_velocity + velocity_interval * static_cast<double>(i);
+      double velocity = std::max(init_velocity + velocity_interval * static_cast<double>(i), 0.0);
       TrajectoryPoint p;
       p.pose = autoware::test_utils::createPose(x, y, 0.0, 0.0, 0.0, theta);
       p.longitudinal_velocity_mps = velocity;
@@ -356,6 +360,7 @@ TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
     ASSERT_TRUE(
       wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
       << "Node failed to output Smoothed Trajectory.";
+    EXPECT_EQ(latest_traj_->header.frame_id, "map");
 
     // check start from 5.0 and less than target (10.0)
     check_velocity_bound(latest_traj_, 5.0, 10.0);
@@ -376,6 +381,7 @@ TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
     ASSERT_TRUE(
       wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
       << "Node failed to output Smoothed Trajectory.";
+    EXPECT_EQ(latest_traj_->header.frame_id, "map");
 
     // check start from 5.0 and less than config maximum velocity (11.1)
     check_velocity_bound(latest_traj_, 5.0, 11.1);
@@ -487,6 +493,63 @@ TEST_F(VelocitySmootherIntegrationHarness, ExternalVelocityConstraintRespect)
 // TEST 3:
 TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
 {
+  ASSERT_TRUE(
+    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
+    << "Node failed to output latest velocity limit for constructor.";
+
+  // check constructor max velocity (from config)
+  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+
+  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
+  operation_mode.mode = OperationModeState::AUTONOMOUS;
+  operation_mode.is_autoware_control_enabled = true;
+  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
+  current_acceleration.accel.accel.linear.x = 0.0;
+
+  {
+    Trajectory input_traj = create_mock_stopping_trajectory(10.0, 80);
+    auto odom = set_start_odom(5.0);
+
+    retrigger_pubs_spin(
+      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+
+    ASSERT_TRUE(
+      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
+      << "Node failed to output Smoothed Trajectory";
+    EXPECT_EQ(latest_traj_->header.frame_id, "map");
+
+    // check start from 5.0 and less than  maximum velocity (11.1)
+    check_velocity_bound(latest_traj_, 5.0, 11.1);
+
+    // check within acceleration bound (from config)
+    check_acceleration_bound(latest_traj_, 1.0, -0.5);
+
+    // find stop point
+    constexpr double stop_vel_threshold = 1e-3;
+    const auto stop_idx = [&]() -> std::optional<size_t> {
+      for (size_t i = 0; i < latest_traj_->points.size(); ++i) {
+        if (latest_traj_->points[i].longitudinal_velocity_mps < stop_vel_threshold) {
+          return i;
+        }
+      }
+      return std::nullopt;
+    }();
+    ASSERT_TRUE(stop_idx.has_value()) << "No stop point found in output.";
+
+    constexpr double tol = 1e-3;
+
+    const double stop_x = 40.0;  // traj has 100 points with 2 m interval, stop_range is 80 points.
+    EXPECT_NEAR(latest_traj_->points[*stop_idx].pose.position.x, stop_x, tol)
+      << "Stop point is not preserved";
+
+    // Stop is maintained to the end
+    for (size_t i = *stop_idx; i < latest_traj_->points.size(); ++i) {
+      EXPECT_NEAR(latest_traj_->points[i].longitudinal_velocity_mps, 0.0, stop_vel_threshold);
+    }
+    // last value is 0.0
+    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, stop_vel_threshold);
+  }
 }
 // TEST 4:
 TEST_F(VelocitySmootherIntegrationHarness, ExternalVelocityLimit)
