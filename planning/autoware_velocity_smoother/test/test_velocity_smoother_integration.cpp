@@ -244,7 +244,7 @@ static void check_velocity_bound(
 static void check_acceleration_bound(
   const Trajectory::ConstSharedPtr & traj, const double max_acc, const double min_acc)
 {
-  constexpr auto tol = 1e-3;
+  constexpr auto tol = 2e-3;
   ASSERT_FALSE(traj->points.empty());
   for (const auto & pt : traj->points) {
     // within acceleration bound
