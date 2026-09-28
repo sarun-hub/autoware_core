@@ -776,4 +776,65 @@ TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory)
   ASSERT_EQ(result_trajectory, nullptr);
 }
 
+// TEST 5.3: OfftrackOdom
+TEST_F(AbnormalInputNoCrash, OfftrackOdom)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(-10.0, 5.0);  // Ego start at x = -10.0, v = 5.0
+
+  // ordinary trajectory
+  const auto input_traj = create_mock_straight_trajectory(10.0);
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 5.4: OfftrackSideOdom
+TEST_F(AbnormalInputNoCrash, OfftrackSideOdom)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  nav_msgs::msg::Odometry odom;
+  odom.pose.pose.position.y = 10.0;
+  odom.twist.twist.linear.x = 5.0;
+  publish_ego_state(odom);  // Ego start at x = 0.0, y = 10.0, v = 5.0
+
+  // ordinary trajectory
+  const auto input_traj = create_mock_straight_trajectory(10.0);
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
 }  // namespace autoware::velocity_smoother
