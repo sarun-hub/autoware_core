@@ -338,8 +338,8 @@ class NominalSmoothing : public VelocitySmootherIntegrationHarness
 {
 };
 
-// TEST 1.1: SmoothStraightTrajectoryWithinVelocityAndAccelerationLimits
-TEST_F(NominalSmoothing, SmoothStraightTrajectoryWithinVelocityAndAccelerationLimits)
+// TEST 1.1: StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
+TEST_F(NominalSmoothing, StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
@@ -369,8 +369,8 @@ TEST_F(NominalSmoothing, SmoothStraightTrajectoryWithinVelocityAndAccelerationLi
   check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 1.2: SmoothStraightTrajectoryExceedingVelocityLimit
-TEST_F(NominalSmoothing, SmoothStraightTrajectoryExceedingVelocityLimit)
+// TEST 1.2: StraightTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
+TEST_F(NominalSmoothing, StraightTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
@@ -400,8 +400,8 @@ TEST_F(NominalSmoothing, SmoothStraightTrajectoryExceedingVelocityLimit)
   check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 1.3: SmoothCurvedTrajectoryWithinVelocityAndAccelerationLimits
-TEST_F(NominalSmoothing, SmoothCurvedTrajectoryWithinVelocityAndAccelerationLimits)
+// TEST 1.3: CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
+TEST_F(NominalSmoothing, CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
@@ -431,8 +431,8 @@ TEST_F(NominalSmoothing, SmoothCurvedTrajectoryWithinVelocityAndAccelerationLimi
   check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 1.4: SmoothCurvedTrajectoryExceedingVelocityLimit
-TEST_F(NominalSmoothing, SmoothCurvedTrajectoryExceedingVelocityLimit)
+// TEST 1.4: CurvedTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
+TEST_F(NominalSmoothing, CurvedTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
@@ -462,8 +462,8 @@ TEST_F(NominalSmoothing, SmoothCurvedTrajectoryExceedingVelocityLimit)
   check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 1.5: SmoothStoppingTrajectoryWithinVelocityAndAccelerationLimits
-TEST_F(NominalSmoothing, SmoothStoppingTrajectoryWithinVelocityAndAccelerationLimits)
+// TEST 1.5: StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
+TEST_F(NominalSmoothing, StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
@@ -493,8 +493,8 @@ TEST_F(NominalSmoothing, SmoothStoppingTrajectoryWithinVelocityAndAccelerationLi
   check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 1.6: SmoothStoppingTrajectoryExceedingVelocityLimit
-TEST_F(NominalSmoothing, SmoothStoppingTrajectoryExceedingVelocityLimit)
+// TEST 1.6: StoppingTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
+TEST_F(NominalSmoothing, StoppingTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
