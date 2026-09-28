@@ -268,6 +268,12 @@ protected:
 
   void reset_trajectory_output() { latest_traj_ = nullptr; }
 
+  // =========================== CONFIG HELPERS ===============================
+
+  double max_acc() const { return node_->get_parameter("normal.max_acc").as_double(); }
+  double min_acc() const { return node_->get_parameter("normal.min_acc").as_double(); }
+  double max_velocity() { return node_->get_parameter("max_vel").as_double(); }
+
   // Nodes
   std::shared_ptr<VelocitySmootherNode> node_;
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
@@ -341,11 +347,6 @@ class NominalSmoothing : public VelocitySmootherIntegrationHarness
 // TEST 1.1: StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
 TEST_F(NominalSmoothing, StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -358,7 +359,8 @@ TEST_F(NominalSmoothing, StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinA
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
@@ -366,17 +368,12 @@ TEST_F(NominalSmoothing, StraightTargetBelowMaxVel_OutputStaysBelowTargetWithinA
   check_velocity_bound(result_trajectory, 5.0, 10.0);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 1.2: StraightTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
 TEST_F(NominalSmoothing, StraightTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -389,25 +386,21 @@ TEST_F(NominalSmoothing, StraightTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinA
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 1.3: CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
 TEST_F(NominalSmoothing, CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
@@ -420,7 +413,8 @@ TEST_F(NominalSmoothing, CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAcc
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
@@ -428,17 +422,12 @@ TEST_F(NominalSmoothing, CurvedTargetBelowMaxVel_OutputStaysBelowTargetWithinAcc
   check_velocity_bound(result_trajectory, 5.0, 10.0);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 1.4: CurvedTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
 TEST_F(NominalSmoothing, CurvedTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
@@ -451,25 +440,21 @@ TEST_F(NominalSmoothing, CurvedTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAcc
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 1.5: StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits
 TEST_F(NominalSmoothing, StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -482,7 +467,8 @@ TEST_F(NominalSmoothing, StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinA
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
@@ -490,17 +476,12 @@ TEST_F(NominalSmoothing, StoppingTargetBelowMaxVel_OutputStaysBelowTargetWithinA
   check_velocity_bound(result_trajectory, 5.0, 10.0);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 1.6: StoppingTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits
 TEST_F(NominalSmoothing, StoppingTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinAccLimits)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -513,15 +494,16 @@ TEST_F(NominalSmoothing, StoppingTargetAboveMaxVel_OutputIsCappedAtMaxVelWithinA
 
   // Assert check
   ASSERT_NE(cur_vel_lim, nullptr);
-  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  EXPECT_NEAR(
+    cur_vel_lim->max_velocity, max_velocity(), 1e-3);  // Initial max_velocity (from config)
   ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 2: ExternalVelocityConstraintRespect
@@ -532,10 +514,6 @@ class ExternalVelocityConstraintRespect : public VelocitySmootherIntegrationHarn
 // TEST 2.1: SmoothStraightTrajectoryExceedingExternalVelocityLimit
 TEST_F(ExternalVelocityConstraintRespect, SmoothStraightTrajectoryExceedingExternalVelocityLimit)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -559,16 +537,12 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothStraightTrajectoryExceedingExter
   check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 2.2: SmoothCurvedTrajectoryExceedingExternalVelocityLimit
 TEST_F(ExternalVelocityConstraintRespect, SmoothCurvedTrajectoryExceedingExternalVelocityLimit)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
@@ -592,16 +566,12 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothCurvedTrajectoryExceedingExterna
   check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 2.3: SmoothStoppingTrajectoryExceedingExternalVelocityLimit
 TEST_F(ExternalVelocityConstraintRespect, SmoothStoppingTrajectoryExceedingExternalVelocityLimit)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
@@ -625,17 +595,12 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothStoppingTrajectoryExceedingExter
   check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 3: StopPointPreserve
 TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, 5.0);                                        // Ego start at x = 0, v = 5.0
@@ -650,10 +615,10 @@ TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 
   // Check stop points
   {
@@ -694,11 +659,6 @@ TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
   constexpr double x_interval = 5.0;
   constexpr double v_interval = 2.0;
 
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(0.0, v_start);                                // Ego start at x = 0, v = 5.0
@@ -735,17 +695,17 @@ TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
       // loosen tol (0.1)
       check_velocity_bound(
         result_trajectory, prev_traj->points[*prev_start_idx_opt].longitudinal_velocity_mps,
-        max_velocity, start_idx_opt, 0.1);
+        max_velocity(), start_idx_opt, 0.1);
 
       // check start point location (should be 5.0 * k)
       EXPECT_NEAR(result_trajectory->points[*start_idx_opt].pose.position.x, 5.0 * k, tol);
     } else {
       // check start from 5.0 and less than maximum velocity (11.1)
-      check_velocity_bound(result_trajectory, 5.0, max_velocity);
+      check_velocity_bound(result_trajectory, 5.0, max_velocity());
     }
 
     // check within acceleration bound (from config)
-    check_acceleration_bound(result_trajectory, max_acc, min_acc);
+    check_acceleration_bound(result_trajectory, max_acc(), min_acc());
     prev_traj = result_trajectory;
   }
 }
@@ -790,11 +750,6 @@ TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory)
 // TEST 5.3: OfftrackOdom
 TEST_F(AbnormalInputNoCrash, OfftrackOdom)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   publish_ego_state(-10.0, 5.0);  // Ego start at x = -10.0, v = 5.0
@@ -810,20 +765,15 @@ TEST_F(AbnormalInputNoCrash, OfftrackOdom)
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 // TEST 5.4: OfftrackSideOdom
 TEST_F(AbnormalInputNoCrash, OfftrackSideOdom)
 {
-  // Get values from config
-  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
-  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
-  const auto max_velocity = node_->get_parameter("max_vel").as_double();
-
   // Publish all necessary inputs
   publish_default_inputs();
   nav_msgs::msg::Odometry odom;
@@ -842,10 +792,10 @@ TEST_F(AbnormalInputNoCrash, OfftrackSideOdom)
   EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   // check start from 5.0 and less than config max_velocity (11.1)
-  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+  check_velocity_bound(result_trajectory, 5.0, max_velocity());
 
   // check within acceleration bound (from config)
-  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+  check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
 }  // namespace autoware::velocity_smoother
