@@ -177,7 +177,7 @@ protected:
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
-  
+
   // =========================== PUBLISH HELPERS ===============================
   void retrigger_pubs_spin(
     const std::optional<Trajectory> & traj, const std::optional<nav_msgs::msg::Odometry> & odom,
@@ -333,283 +333,335 @@ static std::optional<size_t> findClosestIndex(
   return autoware::motion_utils::findNearestIndex(traj->points, odom.pose.pose);
 }
 
-// TEST 1:
-TEST_F(VelocitySmootherIntegrationHarness, NominalSmoothing)
+// TEST 1: NominalSmoothing
+class NominalSmoothing : public VelocitySmootherIntegrationHarness
 {
-  ASSERT_TRUE(
-    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-    << "Node failed to output latest velocity limit.";
+};
 
-  // check constructor max velocity (from config)
-  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+// TEST 1.1: SmoothStraightTrajectoryWithinVelocityAndAccelerationLimits
+TEST_F(NominalSmoothing, SmoothStraightTrajectoryWithinVelocityAndAccelerationLimits)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
 
-  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
-  operation_mode.mode = OperationModeState::AUTONOMOUS;
-  operation_mode.is_autoware_control_enabled = true;
-  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
-  current_acceleration.accel.accel.linear.x = 0.0;
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_straight_trajectory(10);  // Target traj of v = 10.0
 
-  {
-    Trajectory input_traj = create_mock_straight_trajectory(10);
-    auto odom = set_start_odom(5.0);
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
 
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
+  // check start from 5.0 and less than 10.0 (target)
+  check_velocity_bound(result_trajectory, 5.0, 10.0);
 
-    // check start from 5.0 and less than 10.0 (target)
-    check_velocity_bound(latest_traj_, 5.0, 10.0);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // check exceeding velocity
-  {
-    latest_traj_ = nullptr;
-    auto odom = set_start_odom(5.0);
-    Trajectory input_traj = create_mock_straight_trajectory(30.0);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
-
-    // check start from 5.0 and less than config maximum velocity (11.1)
-    check_velocity_bound(latest_traj_, 5.0, 11.1);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Curved Trajectory (v_target = 10)
-  {
-    latest_traj_ = nullptr;
-    auto odom = set_start_odom(5.0);
-    Trajectory input_traj = create_mock_curved_trajectory(10.0);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
-
-    // check start from 5.0 and less than target (10.0)
-    check_velocity_bound(latest_traj_, 5.0, 10.0);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Curved Trajectory (v_target = 30)
-  {
-    latest_traj_ = nullptr;
-    auto odom = set_start_odom(5.0);
-    Trajectory input_traj = create_mock_curved_trajectory(30.0);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
-
-    // check start from 5.0 and less than config maximum velocity (11.1)
-    check_velocity_bound(latest_traj_, 5.0, 11.1);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Stopping Trajectory (v_target = 10)
-  {
-    latest_traj_ = nullptr;
-    auto odom = set_start_odom(5.0);
-    Trajectory input_traj = create_mock_stopping_trajectory(10.0);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
-    EXPECT_EQ(latest_traj_->header.frame_id, "map");
-
-    // check start from 5.0 and less than target (10.0)
-    check_velocity_bound(latest_traj_, 5.0, 10.0);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Stopping Trajectory (v_target = 30)
-  {
-    latest_traj_ = nullptr;
-    auto odom = set_start_odom(5.0);
-    Trajectory input_traj = create_mock_stopping_trajectory(30.0);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory.";
-    EXPECT_EQ(latest_traj_->header.frame_id, "map");
-
-    // check start from 5.0 and less than config maximum velocity (11.1)
-    check_velocity_bound(latest_traj_, 5.0, 11.1);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 2:
-TEST_F(VelocitySmootherIntegrationHarness, ExternalVelocityConstraintRespect)
+// TEST 1.2: SmoothStraightTrajectoryExceedingVelocityLimit
+TEST_F(NominalSmoothing, SmoothStraightTrajectoryExceedingVelocityLimit)
 {
-  ASSERT_TRUE(
-    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-    << "Node failed to output latest velocity limit for constructor.";
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
 
-  // check constructor max velocity (from config)
-  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_straight_trajectory(30);  // Target traj of v = 30.0
 
-  autoware_internal_planning_msgs::msg::VelocityLimit velocity_limit;
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
 
-  velocity_limit.max_velocity = 7.5;
-  velocity_limit.use_constraints = false;
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
-  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
-  operation_mode.mode = OperationModeState::AUTONOMOUS;
-  operation_mode.is_autoware_control_enabled = true;
-  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
-  current_acceleration.accel.accel.linear.x = 0.0;
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
 
-  // Straight trajectory
-  {
-    Trajectory input_traj = create_mock_straight_trajectory(10.0);
-    auto odom = set_start_odom(5.0);
-
-    retrigger_pubs_spin(
-      input_traj, odom, velocity_limit, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output velocity_limit";
-    EXPECT_NEAR(latest_vel_limit_->max_velocity, 7.5, 1e-3);
-
-    // check start from 5.0 and less than external maximum velocity (7.5)
-    check_velocity_bound(latest_traj_, 5.0, 7.5);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Curved trajectory
-  {
-    latest_traj_ = nullptr;
-    latest_vel_limit_ = nullptr;
-    Trajectory input_traj = create_mock_curved_trajectory(10.0);
-
-    retrigger_pubs_spin(
-      input_traj, std::nullopt, velocity_limit, std::nullopt, std::nullopt,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output velocity_limit";
-    EXPECT_NEAR(latest_vel_limit_->max_velocity, 7.5, 1e-3);
-
-    // check start from 5.0 and less than external maximum velocity (7.5)
-    check_velocity_bound(latest_traj_, 5.0, 7.5);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
-
-  // Stopping Trajectory
-  {
-    latest_traj_ = nullptr;
-    latest_vel_limit_ = nullptr;
-    Trajectory input_traj = create_mock_stopping_trajectory(10.0);
-
-    retrigger_pubs_spin(
-      input_traj, std::nullopt, velocity_limit, std::nullopt, std::nullopt,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output velocity_limit";
-    EXPECT_NEAR(latest_vel_limit_->max_velocity, 7.5, 1e-3);
-
-    // check start from 5.0 and less than external maximum velocity (7.5)
-    check_velocity_bound(latest_traj_, 5.0, 7.5);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-  }
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
 }
 
-// TEST 3:
+// TEST 1.3: SmoothCurvedTrajectoryWithinVelocityAndAccelerationLimits
+TEST_F(NominalSmoothing, SmoothCurvedTrajectoryWithinVelocityAndAccelerationLimits)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_curved_trajectory(10);  // Target traj of v = 10.0
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than 10.0 (target)
+  check_velocity_bound(result_trajectory, 5.0, 10.0);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 1.4: SmoothCurvedTrajectoryExceedingVelocityLimit
+TEST_F(NominalSmoothing, SmoothCurvedTrajectoryExceedingVelocityLimit)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_curved_trajectory(30);  // Target traj of v = 30.0
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 1.5: SmoothStoppingTrajectoryWithinVelocityAndAccelerationLimits
+TEST_F(NominalSmoothing, SmoothStoppingTrajectoryWithinVelocityAndAccelerationLimits)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_stopping_trajectory(10);  // Target traj of v = 10.0
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than 10.0 (target)
+  check_velocity_bound(result_trajectory, 5.0, 10.0);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 1.6: SmoothStoppingTrajectoryExceedingVelocityLimit
+TEST_F(NominalSmoothing, SmoothStoppingTrajectoryExceedingVelocityLimit)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_stopping_trajectory(30);  // Target traj of v = 30.0
+
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto cur_vel_lim = receive_velocity_limit();
+  const auto result_trajectory = receive_smoothed_trajectory();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, max_velocity, 1e-3);  // Initial max_velocity (from config)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 2: ExternalVelocityConstraintRespect
+class ExternalVelocityConstraintRespect : public VelocitySmootherIntegrationHarness
+{
+};
+
+// TEST 2.1: SmoothStraightTrajectoryExceedingExternalVelocityLimit
+TEST_F(ExternalVelocityConstraintRespect, SmoothStraightTrajectoryExceedingExternalVelocityLimit)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_straight_trajectory(10);  // Target traj of v = 10.0
+  constexpr double ext_max_velocity = 7.5;
+
+  // Publish input trajectory and receive smoothed trajectory
+  reset_output_messages();
+  publish_velocity_limit(ext_max_velocity);
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
+  const auto cur_vel_lim = receive_velocity_limit();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, ext_max_velocity, 1e-3);  // ext_max_velocity (7.5)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than ext_max_velocity (7.5)
+  check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 2.2: SmoothCurvedTrajectoryExceedingExternalVelocityLimit
+TEST_F(ExternalVelocityConstraintRespect, SmoothCurvedTrajectoryExceedingExternalVelocityLimit)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_curved_trajectory(10);  // Target traj of v = 10.0
+  constexpr double ext_max_velocity = 7.5;
+
+  // Publish input trajectory and receive smoothed trajectory
+  reset_output_messages();
+  publish_velocity_limit(ext_max_velocity);
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
+  const auto cur_vel_lim = receive_velocity_limit();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, ext_max_velocity, 1e-3);  // ext_max_velocity (7.5)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than ext_max_velocity (7.5)
+  check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 2.3: SmoothStoppingTrajectoryExceedingExternalVelocityLimit
+TEST_F(ExternalVelocityConstraintRespect, SmoothStoppingTrajectoryExceedingExternalVelocityLimit)
+{
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                  // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_stopping_trajectory(10);  // Target traj of v = 10.0
+  constexpr double ext_max_velocity = 7.5;
+
+  // Publish input trajectory and receive smoothed trajectory
+  reset_output_messages();
+  publish_velocity_limit(ext_max_velocity);
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
+  const auto cur_vel_lim = receive_velocity_limit();
+
+  // Assert check
+  ASSERT_NE(cur_vel_lim, nullptr);
+  EXPECT_NEAR(cur_vel_lim->max_velocity, ext_max_velocity, 1e-3);  // ext_max_velocity (7.5)
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than ext_max_velocity (7.5)
+  check_velocity_bound(result_trajectory, 5.0, ext_max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+}
+
+// TEST 3: StopPointPreserve
 TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
 {
-  ASSERT_TRUE(
-    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-    << "Node failed to output latest velocity limit for constructor.";
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
 
-  // check constructor max velocity (from config)
-  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                        // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_stopping_trajectory(10.0, 80);  // Target traj of v = 10.0
 
-  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
-  operation_mode.mode = OperationModeState::AUTONOMOUS;
-  operation_mode.is_autoware_control_enabled = true;
-  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
-  current_acceleration.accel.accel.linear.x = 0.0;
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
 
+  // Assert check
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
+
+  // check start from 5.0 and less than config max_velocity (11.1)
+  check_velocity_bound(result_trajectory, 5.0, max_velocity);
+
+  // check within acceleration bound (from config)
+  check_acceleration_bound(result_trajectory, max_acc, min_acc);
+
+  // Check stop points
   {
-    Trajectory input_traj = create_mock_stopping_trajectory(10.0, 80);
-    auto odom = set_start_odom(5.0);
-
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
-    EXPECT_EQ(latest_traj_->header.frame_id, "map");
-
-    // check start from 5.0 and less than  maximum velocity (11.1)
-    check_velocity_bound(latest_traj_, 5.0, 11.1);
-
-    // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-
     // find stop point
     constexpr double stop_vel_threshold = 1e-3;
     const auto stop_idx = [&]() -> std::optional<size_t> {
-      for (size_t i = 0; i < latest_traj_->points.size(); ++i) {
-        if (latest_traj_->points[i].longitudinal_velocity_mps < stop_vel_threshold) {
+      for (size_t i = 0; i < result_trajectory->points.size(); ++i) {
+        if (result_trajectory->points[i].longitudinal_velocity_mps < stop_vel_threshold) {
           return i;
         }
       }
@@ -617,135 +669,111 @@ TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
     }();
     ASSERT_TRUE(stop_idx.has_value()) << "No stop point found in output.";
 
+    // Setup value for testing
     constexpr double tol = 1e-3;
-
     const double stop_x = 40.0;  // traj has 100 points with 2 m interval, stop_range is 80 points.
-    EXPECT_NEAR(latest_traj_->points[*stop_idx].pose.position.x, stop_x, tol)
+
+    EXPECT_NEAR(result_trajectory->points[*stop_idx].pose.position.x, stop_x, tol)
       << "Stop point is not preserved";
 
     // Stop is maintained to the end
-    for (size_t i = *stop_idx; i < latest_traj_->points.size(); ++i) {
-      EXPECT_NEAR(latest_traj_->points[i].longitudinal_velocity_mps, 0.0, stop_vel_threshold);
+    for (size_t i = *stop_idx; i < result_trajectory->points.size(); ++i) {
+      EXPECT_NEAR(result_trajectory->points[i].longitudinal_velocity_mps, 0.0, stop_vel_threshold);
     }
     // last value is 0.0
-    EXPECT_NEAR(latest_traj_->points.back().longitudinal_velocity_mps, 0.0, stop_vel_threshold);
+    EXPECT_NEAR(
+      result_trajectory->points.back().longitudinal_velocity_mps, 0.0, stop_vel_threshold);
   }
 }
 
-// TEST 4:
+// TEST 4: MultiCycleConsistency
 TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
 {
   constexpr double tol = 1e-3;
-  ASSERT_TRUE(
-    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-    << "Node failed to output latest velocity limit for constructor.";
+  // Get values from config
+  const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
+  const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
+  const auto max_velocity = node_->get_parameter("max_vel").as_double();
 
-  // check constructor max velocity (from config)
-  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);                                    // Ego start at x = 0, v = 5.0
+  const auto input_traj = create_mock_straight_trajectory(10.0);  // Target traj of v = 10.0
 
-  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
-  operation_mode.mode = OperationModeState::AUTONOMOUS;
-  operation_mode.is_autoware_control_enabled = true;
-  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
-  current_acceleration.accel.accel.linear.x = 0.0;
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
 
-  Trajectory input_traj = create_mock_straight_trajectory(10.0);
-  retrigger_pubs_spin(
-    std::nullopt, std::nullopt, std::nullopt, operation_mode, current_acceleration,
-    std::chrono::milliseconds(100));
+  // Assert check
+  ASSERT_NE(result_trajectory, nullptr) << "Node failed to output Smoothed Trajectory.";
+  EXPECT_EQ(result_trajectory->header.frame_id, "map");
 
   Trajectory::ConstSharedPtr prev_traj;
   // test for 4 cycles
   for (size_t k = 0; k < 4; ++k) {
-    latest_traj_ = nullptr;
+    reset_trajectory_output();
     auto odom = set_odom(5.0 * k, 5.0 + 2.0 * k);
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, std::nullopt, std::nullopt, std::chrono::milliseconds(100));
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
+    publish_ego_state(odom);
 
     if (k > 0) {
-      const auto start_idx_opt = findClosestIndex(latest_traj_, odom);
+      const auto start_idx_opt = findClosestIndex(result_trajectory, odom);
       ASSERT_TRUE(start_idx_opt.has_value());
       const auto prev_start_idx_opt = findClosestIndex(prev_traj, odom);
       ASSERT_TRUE(prev_start_idx_opt.has_value());
-      // check start from that start_idx velocity and less than  maximum velocity (11.1) - with
+      // check start from that start_idx velocity and less than maximum velocity (11.1) - with
       // loosen tol (0.1)
       check_velocity_bound(
-        latest_traj_, prev_traj->points[*prev_start_idx_opt].longitudinal_velocity_mps, 11.1,
-        start_idx_opt, 0.1);
+        result_trajectory, prev_traj->points[*prev_start_idx_opt].longitudinal_velocity_mps,
+        max_velocity, start_idx_opt, 0.1);
 
       // check start point location (should be 5.0 * k)
-      EXPECT_NEAR(latest_traj_->points[*start_idx_opt].pose.position.x, 5.0 * k, tol);
+      EXPECT_NEAR(result_trajectory->points[*start_idx_opt].pose.position.x, 5.0 * k, tol);
     } else {
-      // check start from 5.0 and less than  maximum velocity (11.1)
-      check_velocity_bound(latest_traj_, 5.0, 11.1);
+      // check start from 5.0 and less than maximum velocity (11.1)
+      check_velocity_bound(result_trajectory, 5.0, max_velocity);
     }
 
     // check within acceleration bound (from config)
-    check_acceleration_bound(latest_traj_, 1.0, -0.5);
-    prev_traj = latest_traj_;
+    check_acceleration_bound(result_trajectory, max_acc, min_acc);
+    prev_traj = result_trajectory;
   }
 }
 
-// TEST 5:
-TEST_F(VelocitySmootherIntegrationHarness, AbnormalInputNoCrash)
+// TEST 5: AbnormalInputNoCrash
+class AbnormalInputNoCrash : public VelocitySmootherIntegrationHarness
 {
-  ASSERT_TRUE(
-    wait_for([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100)))
-    << "Node failed to output latest velocity limit.";
+};
 
-  // check constructor max velocity (from config)
-  EXPECT_NEAR(latest_vel_limit_->max_velocity, 11.1, 1e-3);
+// TEST 5.1: EmptyInputTrajectory
+TEST_F(AbnormalInputNoCrash, EmptyInputTrajectory)
+{
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);  // Ego start at x = 0, v = 5.0
+  // 0 point trajectory
+  const auto input_traj = autoware::test_utils::generateTrajectory<Trajectory>(0, 2.0, 10.0);
 
-  autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
-  operation_mode.mode = OperationModeState::AUTONOMOUS;
-  operation_mode.is_autoware_control_enabled = true;
-  geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
-  current_acceleration.accel.accel.linear.x = 0.0;
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
 
-  {
-    // empty input_traj
-    Trajectory input_traj = autoware::test_utils::generateTrajectory<Trajectory>(0, 2.0, 10.0);
-    auto odom = set_start_odom(5.0);
+  ASSERT_EQ(result_trajectory, nullptr);
+}
 
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
+// TEST 5.2: SinglePointInputTrajectory
+TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory)
+{
+  // Publish all necessary inputs
+  publish_default_inputs();
+  publish_ego_state(0.0, 5.0);  // Ego start at x = 0, v = 5.0
+  // 1 point trajectory
+  const auto input_traj = autoware::test_utils::generateTrajectory<Trajectory>(1, 2.0, 10.0);
 
-    ASSERT_FALSE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node output Smoothed Trajectory from empty input.";
-  }
+  // Publish input trajectory and receive smoothed trajectory
+  publish_input_trajectory(input_traj);
+  const auto result_trajectory = receive_smoothed_trajectory();
 
-  {
-    // single-point input_traj
-    Trajectory input_traj = autoware::test_utils::generateTrajectory<Trajectory>(1, 2.0, 10.0);
-    auto odom = set_start_odom(5.0);
-
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_FALSE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node output Smoothed Trajectory from single-point input_traj.";
-  }
-
-  {
-    // two-points input_traj
-    Trajectory input_traj = autoware::test_utils::generateTrajectory<Trajectory>(2, 2.0, 10.0);
-    auto odom = set_start_odom(5.0);
-
-    retrigger_pubs_spin(
-      input_traj, odom, std::nullopt, operation_mode, current_acceleration,
-      std::chrono::milliseconds(100));
-
-    ASSERT_TRUE(
-      wait_for([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100)))
-      << "Node failed to output Smoothed Trajectory";
-  }
+  ASSERT_EQ(result_trajectory, nullptr);
 }
 
 }  // namespace autoware::velocity_smoother
