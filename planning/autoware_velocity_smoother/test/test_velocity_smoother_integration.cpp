@@ -27,6 +27,68 @@ namespace autoware::velocity_smoother
 
 using autoware_planning_msgs::msg::Trajectory;
 
+namespace
+{
+// ======================= MOCK TRAJECTORY GENERATOR =========================
+// Straight Trajectory
+Trajectory create_mock_straight_trajectory(const double velocity = 5.0)
+{
+  auto traj = autoware::test_utils::generateTrajectory<Trajectory>(100, 2.0, velocity);
+  traj.header.frame_id = "map";
+  return traj;
+}
+
+// Curved Trajectory
+Trajectory create_mock_curved_trajectory(const double velocity = 5.0)
+{
+  auto traj =
+    autoware::test_utils::generateTrajectory<Trajectory>(100, 2.0, velocity, 0.0, M_PI / 180);
+  traj.header.frame_id = "map";
+  return traj;
+}
+
+// Stopping Trajectory (with deceleration ramp)
+Trajectory create_mock_stopping_trajectory(
+  const double init_velocity = 5.0, const size_t stopping_range = 0)
+{
+  const size_t num_points = 100;
+  const double point_interval = 2.0;
+  const double final_velocity = 0.0;
+  const double theta = 0.0;
+  const double velocity_interval = (final_velocity - init_velocity) / (num_points - stopping_range);
+  Trajectory traj;
+  traj.header.frame_id = "map";
+  traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
+  for (size_t i = 0; i < num_points; ++i) {
+    const double x = static_cast<double>(i) * point_interval * std::cos(theta);
+    const double y = static_cast<double>(i) * point_interval * std::sin(theta);
+
+    double velocity = std::max(init_velocity + velocity_interval * static_cast<double>(i), 0.0);
+    TrajectoryPoint p;
+    p.pose = autoware::test_utils::createPose(x, y, 0.0, 0.0, 0.0, theta);
+    p.longitudinal_velocity_mps = velocity;
+    traj.points.push_back(p);
+  }
+
+  return traj;
+}
+
+nav_msgs::msg::Odometry set_odom(const double x, const double velocity = 5.0)
+{
+  nav_msgs::msg::Odometry odom;
+  odom.header.frame_id = "map";
+
+  // set pose position at (x ,0.0 ,0.0) with quaternion (0.0, 0.0, 0.0, 1.0)
+  odom.pose.pose.position.x = x;
+
+  // A bit forward velocity
+  odom.twist.twist.linear.x = velocity;
+
+  return odom;
+}
+
+}  // namespace
+
 class VelocitySmootherIntegrationHarness : public ::testing::Test
 {
 protected:
@@ -116,78 +178,8 @@ protected:
     }
     return pred();
   }
-
-  // ======================= MOCK TRAJECTORY GENERATOR =========================
-  // Straight Trajectory
-  static Trajectory create_mock_straight_trajectory(const double velocity = 5.0)
-  {
-    return autoware::test_utils::generateTrajectory<Trajectory>(100, 2.0, velocity);
-  }
-
-  // Curved Trajectory
-  static Trajectory create_mock_curved_trajectory(const double velocity = 5.0)
-  {
-    return autoware::test_utils::generateTrajectory<Trajectory>(
-      100, 2.0, velocity, 0.0, M_PI / 180);
-  }
-
-  // Stopping Trajectory (with deceleration ramp)
-  static Trajectory create_mock_stopping_trajectory(
-    const double init_velocity = 5.0, const size_t stopping_range = 0.0)
-  {
-    const size_t num_points = 100;
-    const double point_interval = 2.0;
-    const double final_velocity = 0.0;
-    const double theta = 0.0;
-    const double velocity_interval =
-      (final_velocity - init_velocity) / (num_points - stopping_range);
-    Trajectory traj;
-    traj.header.frame_id = "map";
-    traj.header.stamp = rclcpp::Clock{RCL_ROS_TIME}.now();
-    for (size_t i = 0; i < num_points; ++i) {
-      const double x = static_cast<double>(i) * point_interval * std::cos(theta);
-      const double y = static_cast<double>(i) * point_interval * std::sin(theta);
-
-      double velocity = std::max(init_velocity + velocity_interval * static_cast<double>(i), 0.0);
-      TrajectoryPoint p;
-      p.pose = autoware::test_utils::createPose(x, y, 0.0, 0.0, 0.0, theta);
-      p.longitudinal_velocity_mps = velocity;
-      traj.points.push_back(p);
-    }
-
-    return traj;
-  }
-
-  // Self-intersecting Trajectory (TBD)
-
+  
   // =========================== PUBLISH HELPERS ===============================
-
-  static nav_msgs::msg::Odometry set_start_odom(double velocity = 5.0)
-  {
-    // set pose position at (0.0 ,0.0 ,0.0) with quaternion (0.0, 0.0, 0.0, 1.0)
-    nav_msgs::msg::Odometry odom;
-    odom.header.frame_id = "map";
-
-    // A bit forward velocity
-    odom.twist.twist.linear.x = velocity;
-
-    return odom;
-  }
-
-  static nav_msgs::msg::Odometry set_odom(const double x, const double velocity = 5.0)
-  {
-    nav_msgs::msg::Odometry odom;
-    odom.header.frame_id = "map";
-
-    // set pose position at (x ,0.0 ,0.0) with quaternion (0.0, 0.0, 0.0, 1.0)
-    odom.pose.pose.position.x = x;
-
-    // A bit forward velocity
-    odom.twist.twist.linear.x = velocity;
-
-    return odom;
-  }
-
   void retrigger_pubs_spin(
     const std::optional<Trajectory> & traj, const std::optional<nav_msgs::msg::Odometry> & odom,
     const std::optional<autoware_internal_planning_msgs::msg::VelocityLimit> &
