@@ -715,9 +715,16 @@ TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
   Trajectory::ConstSharedPtr prev_traj;
   // test for 4 cycles
   for (size_t k = 0; k < 4; ++k) {
+    // reset output
     reset_trajectory_output();
+
+    // set next odom (ego state)
     auto odom = set_odom(x_interval * k, v_start + v_interval * k);
     publish_ego_state(odom);
+
+    // update result_trajectory
+    publish_input_trajectory(input_traj);
+    const auto result_trajectory = receive_smoothed_trajectory();
 
     if (k > 0) {
       const auto start_idx_opt = findClosestIndex(result_trajectory, odom);
