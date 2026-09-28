@@ -690,6 +690,10 @@ TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
 TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
 {
   constexpr double tol = 1e-3;
+  constexpr double v_start = 5.0;
+  constexpr double x_interval = 5.0;
+  constexpr double v_interval = 2.0;
+
   // Get values from config
   const auto max_acc = node_->get_parameter("normal.max_acc").as_double();
   const auto min_acc = node_->get_parameter("normal.min_acc").as_double();
@@ -697,7 +701,7 @@ TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
 
   // Publish all necessary inputs
   publish_default_inputs();
-  publish_ego_state(0.0, 5.0);                                    // Ego start at x = 0, v = 5.0
+  publish_ego_state(0.0, v_start);                                // Ego start at x = 0, v = 5.0
   const auto input_traj = create_mock_straight_trajectory(10.0);  // Target traj of v = 10.0
 
   // Publish input trajectory and receive smoothed trajectory
@@ -712,7 +716,7 @@ TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
   // test for 4 cycles
   for (size_t k = 0; k < 4; ++k) {
     reset_trajectory_output();
-    auto odom = set_odom(5.0 * k, 5.0 + 2.0 * k);
+    auto odom = set_odom(x_interval * k, v_start + v_interval * k);
     publish_ego_state(odom);
 
     if (k > 0) {
