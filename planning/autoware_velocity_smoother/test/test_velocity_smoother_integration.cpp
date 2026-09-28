@@ -166,17 +166,16 @@ protected:
 
   // Wait helper: spins executor until condition becomes true or timeout elapses
   template <typename Pred>
-  bool wait_for(Pred pred, std::chrono::milliseconds timeout)
+  void spin_until(Pred pred, std::chrono::milliseconds timeout)
   {
     const auto end_time = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < end_time && rclcpp::ok()) {
       if (pred()) {
-        return true;
+        return;
       }
       executor_->spin_some();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    return pred();
   }
   
   // =========================== PUBLISH HELPERS ===============================
@@ -205,6 +204,69 @@ protected:
     }
     spin_executor_for(std::chrono::milliseconds(spin_time));
   }
+
+  void publish_velocity_limit(const double max_velocity)
+  {
+    autoware_internal_planning_msgs::msg::VelocityLimit velocity_limit;
+
+    velocity_limit.max_velocity = max_velocity;
+    velocity_limit.use_constraints = false;
+    retrigger_pubs_spin(
+      std::nullopt, std::nullopt, velocity_limit, std::nullopt, std::nullopt,
+      std::chrono::milliseconds(100));
+  }
+
+  void publish_ego_state(const nav_msgs::msg::Odometry & odom)
+  {
+    retrigger_pubs_spin(
+      std::nullopt, odom, std::nullopt, std::nullopt, std::nullopt, std::chrono::milliseconds(100));
+  }
+
+  void publish_ego_state(const double x = 0.0, const double velocity = 5.0)
+  {
+    auto odom = set_odom(x, velocity);
+    publish_ego_state(odom);
+  }
+
+  void publish_input_trajectory(const Trajectory & input_traj)
+  {
+    retrigger_pubs_spin(
+      input_traj, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+      std::chrono::milliseconds(100));
+  }
+
+  void publish_default_inputs()
+  {
+    autoware_adapi_v1_msgs::msg::OperationModeState operation_mode;
+    operation_mode.mode = OperationModeState::AUTONOMOUS;
+    operation_mode.is_autoware_control_enabled = true;
+    geometry_msgs::msg::AccelWithCovarianceStamped current_acceleration;
+
+    // publish operation_mode and acceleration (zero)
+    retrigger_pubs_spin(
+      std::nullopt, std::nullopt, std::nullopt, operation_mode, current_acceleration,
+      std::chrono::milliseconds(100));
+  }
+
+  Trajectory::ConstSharedPtr receive_smoothed_trajectory()
+  {
+    spin_until([this] { return latest_traj_ != nullptr; }, std::chrono::milliseconds(100));
+    return latest_traj_;
+  }
+
+  autoware_internal_planning_msgs::msg::VelocityLimit::ConstSharedPtr receive_velocity_limit()
+  {
+    spin_until([this] { return latest_vel_limit_ != nullptr; }, std::chrono::milliseconds(100));
+    return latest_vel_limit_;
+  }
+
+  void reset_output_messages()
+  {
+    latest_traj_ = nullptr;
+    latest_vel_limit_ = nullptr;
+  }
+
+  void reset_trajectory_output() { latest_traj_ = nullptr; }
 
   // Nodes
   std::shared_ptr<VelocitySmootherNode> node_;
