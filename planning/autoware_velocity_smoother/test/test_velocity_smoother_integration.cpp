@@ -511,8 +511,10 @@ class ExternalVelocityConstraintRespect : public VelocitySmootherIntegrationHarn
 {
 };
 
-// TEST 2.1: SmoothStraightTrajectoryExceedingExternalVelocityLimit
-TEST_F(ExternalVelocityConstraintRespect, SmoothStraightTrajectoryExceedingExternalVelocityLimit)
+// TEST 2.1: StraightTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits
+TEST_F(
+  ExternalVelocityConstraintRespect,
+  StraightTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -540,8 +542,10 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothStraightTrajectoryExceedingExter
   check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
-// TEST 2.2: SmoothCurvedTrajectoryExceedingExternalVelocityLimit
-TEST_F(ExternalVelocityConstraintRespect, SmoothCurvedTrajectoryExceedingExternalVelocityLimit)
+// TEST 2.2: CurvedTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits
+TEST_F(
+  ExternalVelocityConstraintRespect,
+  CurvedTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -569,8 +573,10 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothCurvedTrajectoryExceedingExterna
   check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
-// TEST 2.3: SmoothStoppingTrajectoryExceedingExternalVelocityLimit
-TEST_F(ExternalVelocityConstraintRespect, SmoothStoppingTrajectoryExceedingExternalVelocityLimit)
+// TEST 2.3: StoppingTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits
+TEST_F(
+  ExternalVelocityConstraintRespect,
+  StoppingTargetBelowMaxVelAboveExtMaxVel_OutputIsCappedAtExtMaxVelWithinAccLimits)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -598,8 +604,8 @@ TEST_F(ExternalVelocityConstraintRespect, SmoothStoppingTrajectoryExceedingExter
   check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
-// TEST 3: StopPointPreserve
-TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
+// TEST 3: StopPoint_OutputStopPointPreserved
+TEST_F(VelocitySmootherIntegrationHarness, StopPoint_OutputStopPointPreserved)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -651,8 +657,8 @@ TEST_F(VelocitySmootherIntegrationHarness, StopPointPreserve)
   }
 }
 
-// TEST 4: MultiCycleConsistency
-TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency)
+// TEST 4: MultiCycleConsistency_OutputRemainsConsistent
+TEST_F(VelocitySmootherIntegrationHarness, MultiCycleConsistency_OutputRemainsConsistent)
 {
   constexpr double tol = 1e-3;
   constexpr double v_start = 5.0;
@@ -715,8 +721,8 @@ class AbnormalInputNoCrash : public VelocitySmootherIntegrationHarness
 {
 };
 
-// TEST 5.1: EmptyInputTrajectory
-TEST_F(AbnormalInputNoCrash, EmptyInputTrajectory)
+// TEST 5.1: EmptyInputTrajectory_NoOutput
+TEST_F(AbnormalInputNoCrash, EmptyInputTrajectory_NoOutput)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -731,8 +737,8 @@ TEST_F(AbnormalInputNoCrash, EmptyInputTrajectory)
   ASSERT_EQ(result_trajectory, nullptr);
 }
 
-// TEST 5.2: SinglePointInputTrajectory
-TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory)
+// TEST 5.2: SinglePointInputTrajectory_NoOutput
+TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory_NoOutput)
 {
   // Publish all necessary inputs
   publish_default_inputs();
@@ -747,11 +753,13 @@ TEST_F(AbnormalInputNoCrash, SinglePointInputTrajectory)
   ASSERT_EQ(result_trajectory, nullptr);
 }
 
-// TEST 5.3: OfftrackOdom
-TEST_F(AbnormalInputNoCrash, OfftrackOdom)
+// TEST 5.3: OfftrackLongitudinalOdom_ProducesValidTrajectory
+TEST_F(AbnormalInputNoCrash, OfftrackLongitudinalOdom_ProducesValidTrajectory)
 {
   // Publish all necessary inputs
   publish_default_inputs();
+
+  // Ego is longitudinally off-track from the trajectory
   publish_ego_state(-10.0, 5.0);  // Ego start at x = -10.0, v = 5.0
 
   // ordinary trajectory
@@ -771,14 +779,15 @@ TEST_F(AbnormalInputNoCrash, OfftrackOdom)
   check_acceleration_bound(result_trajectory, max_acc(), min_acc());
 }
 
-// TEST 5.4: OfftrackSideOdom
-TEST_F(AbnormalInputNoCrash, OfftrackSideOdom)
+// TEST 5.4: OfftrackLateralOdom_ProducesValidTrajectory
+TEST_F(AbnormalInputNoCrash, OfftrackLateralOdom_ProducesValidTrajectory)
 {
   // Publish all necessary inputs
   publish_default_inputs();
   nav_msgs::msg::Odometry odom;
   odom.pose.pose.position.y = 10.0;
   odom.twist.twist.linear.x = 5.0;
+  // Ego is laterally off-track from the trajectory
   publish_ego_state(odom);  // Ego start at x = 0.0, y = 10.0, v = 5.0
 
   // ordinary trajectory
