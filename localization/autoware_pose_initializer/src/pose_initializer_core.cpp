@@ -15,17 +15,15 @@
 #include "pose_initializer_core.hpp"
 
 #include "copy_vector_to_array.hpp"
-#include "ekf_localization_trigger_module.hpp"
 #include "gnss_module.hpp"
 #include "localization_module.hpp"
-#include "ndt_localization_trigger_module.hpp"
+#include "localization_trigger_module.hpp"
 #include "pose_error_check_module.hpp"
 #include "stop_check_module.hpp"
 
-#include <autoware/qos_utils/qos_compatibility.hpp>
-
 #include <autoware_adapi_v1_msgs/msg/response_status.hpp>
 
+#include <chrono>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -33,27 +31,23 @@
 namespace autoware::pose_initializer
 {
 PoseInitializer::PoseInitializer(const rclcpp::NodeOptions & options)
-: rclcpp::Node("pose_initializer", options),
-  group_srv_(create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive))
+: autoware::agnocast_wrapper::Node("pose_initializer", options),
+  group_srv_(create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive)),
+  pub_reset_(create_publisher<PoseWithCovarianceStamped>("pose_reset", 1))
 {
-  rclcpp::QoS qos_state(1);
-  qos_state.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
-  qos_state.durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-  pub_state_ = create_publisher<State::Message>(
-    State::name, autoware::component_interface_specs::get_qos<State>());
-  srv_initialize_ = create_service<Initialize::Service>(
-    Initialize::name,
-    std::bind(&PoseInitializer::on_initialize, this, std::placeholders::_1, std::placeholders::_2),
-    AUTOWARE_DEFAULT_SERVICES_QOS_PROFILE(), group_srv_);
-  pub_reset_ = create_publisher<PoseWithCovarianceStamped>("pose_reset", 1);
+  pub_state_ = adaptor_.create_publisher<State>();
+  srv_initialize_ =
+    adaptor_.create_service<Initialize>(this, &PoseInitializer::on_initialize, group_srv_);
 
   output_pose_covariance_ = get_covariance_parameter(this, "output_pose_covariance");
   gnss_particle_covariance_ = get_covariance_parameter(this, "gnss_particle_covariance");
-  diagnostics_pose_reliable_ = std::make_unique<autoware_utils_diagnostics::DiagnosticsInterface>(
+  diagnostics_pose_reliable_ = std::make_unique<
+    autoware_utils_diagnostics::BasicDiagnosticsInterface<autoware::agnocast_wrapper::Node>>(
     this, "pose_initializer_status");
 
   if (declare_parameter<bool>("ekf_enabled")) {
-    ekf_localization_trigger_ = std::make_unique<EkfLocalizationTriggerModule>(this);
+    ekf_localization_trigger_ =
+      std::make_unique<LocalizationTriggerModule>(this, "ekf_trigger_node", "EKF");
   }
   if (declare_parameter<bool>("gnss_enabled")) {
     gnss_ = std::make_unique<GnssModule>(this);
@@ -63,7 +57,8 @@ PoseInitializer::PoseInitializer(const rclcpp::NodeOptions & options)
   }
   if (declare_parameter<bool>("ndt_enabled")) {
     ndt_ = std::make_unique<LocalizationModule>(this, "ndt_align");
-    ndt_localization_trigger_ = std::make_unique<NdtLocalizationTriggerModule>(this);
+    ndt_localization_trigger_ =
+      std::make_unique<LocalizationTriggerModule>(this, "ndt_trigger_node", "NDT");
   }
   if (declare_parameter<bool>("stop_check_enabled")) {
     // Add 1.0 sec margin for twist buffer.
@@ -73,7 +68,8 @@ PoseInitializer::PoseInitializer(const rclcpp::NodeOptions & options)
   if (declare_parameter<bool>("pose_error_check_enabled")) {
     pose_error_check_ = std::make_unique<PoseErrorCheckModule>(this);
   }
-  logger_configure_ = std::make_unique<autoware_utils_logging::LoggerLevelConfigure>(this);
+  logger_configure_ = std::make_unique<
+    autoware_utils_logging::BasicLoggerLevelConfigure<autoware::agnocast_wrapper::Node>>(this);
 
   change_state(State::Message::UNINITIALIZED);
 
@@ -100,7 +96,18 @@ PoseInitializer::PoseInitializer(const rclcpp::NodeOptions & options)
     initial_pose.orientation.z = initial_pose_array[5];
     initial_pose.orientation.w = initial_pose_array[6];
 
-    set_user_defined_initial_pose(initial_pose, true);
+    change_state(State::Message::INITIALIZING);
+
+    // Blocks on the trigger service responses, so it can only run once the executor is spinning.
+    // group_srv_ keeps it off the callback group that has to deliver those responses.
+    // It also has to stay there so it cannot interleave with on_initialize().
+    user_defined_initial_pose_timer_ = autoware::agnocast_wrapper::create_timer(
+      this, get_clock(), rclcpp::Duration(std::chrono::milliseconds(1)),
+      [this, initial_pose]() {
+        user_defined_initial_pose_timer_->cancel();
+        set_user_defined_initial_pose(initial_pose);
+      },
+      group_srv_);
   }
 }
 
@@ -111,30 +118,27 @@ void PoseInitializer::change_state(State::Message::_state_type state)
   pub_state_->publish(state_);
 }
 
-// To execute in the constructor, you need to call ros spin.
-// Conversely, ros spin should not be called elsewhere
-void PoseInitializer::change_node_trigger(bool flag, bool need_spin)
+void PoseInitializer::change_node_trigger(bool flag)
 {
   try {
     if (ekf_localization_trigger_) {
       ekf_localization_trigger_->wait_for_service();
-      ekf_localization_trigger_->send_request(flag, need_spin);
+      ekf_localization_trigger_->send_request(flag);
     }
     if (ndt_localization_trigger_) {
       ndt_localization_trigger_->wait_for_service();
-      ndt_localization_trigger_->send_request(flag, need_spin);
+      ndt_localization_trigger_->send_request(flag);
     }
   } catch (const autoware_adapi_v1_msgs::msg::ResponseStatus & error) {
     throw;
   }
 }
 
-void PoseInitializer::set_user_defined_initial_pose(
-  const geometry_msgs::msg::Pose initial_pose, bool need_spin)
+void PoseInitializer::set_user_defined_initial_pose(const geometry_msgs::msg::Pose initial_pose)
 {
   try {
     change_state(State::Message::INITIALIZING);
-    change_node_trigger(false, need_spin);
+    change_node_trigger(false);
 
     PoseWithCovarianceStamped pose;
     pose.header.frame_id = "map";
@@ -143,7 +147,7 @@ void PoseInitializer::set_user_defined_initial_pose(
     pose.pose.covariance = output_pose_covariance_;
     pub_reset_->publish(pose);
 
-    change_node_trigger(true, need_spin);
+    change_node_trigger(true);
     change_state(State::Message::INITIALIZED);
 
     RCLCPP_INFO(get_logger(), "Set user defined initial pose");
@@ -169,7 +173,7 @@ void PoseInitializer::on_initialize(
 
     if (req->method == Initialize::Service::Request::AUTO) {
       change_state(State::Message::INITIALIZING);
-      change_node_trigger(false, false);
+      change_node_trigger(false);
 
       auto pose =
         req->pose_with_covariance.empty() ? get_gnss_pose() : req->pose_with_covariance.front();
@@ -215,7 +219,7 @@ void PoseInitializer::on_initialize(
       pose.pose.covariance = output_pose_covariance_;
       pub_reset_->publish(pose);
 
-      change_node_trigger(true, false);
+      change_node_trigger(true);
       res->status.success = true;
       change_state(State::Message::INITIALIZED);
 
@@ -232,7 +236,7 @@ void PoseInitializer::on_initialize(
         throw respose_status;
       }
       auto pose = req->pose_with_covariance.front().pose.pose;
-      set_user_defined_initial_pose(pose, false);
+      set_user_defined_initial_pose(pose);
       res->status.success = true;
 
     } else {

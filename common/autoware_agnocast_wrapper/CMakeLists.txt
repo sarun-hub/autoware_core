@@ -7,9 +7,15 @@ autoware_package()
 find_package(rclcpp REQUIRED)
 find_package(autoware_utils_rclcpp REQUIRED)
 find_package(message_filters REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(glog REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 
 if(DEFINED ENV{ENABLE_AGNOCAST} AND "$ENV{ENABLE_AGNOCAST}" STREQUAL "1")
-  find_package(agnocastlib REQUIRED)
+  find_package(agnocastlib 2.4.0 REQUIRED)
 endif()
 
 include_directories(
@@ -18,6 +24,7 @@ include_directories(
 
 ament_auto_add_library(${PROJECT_NAME} SHARED
   src/node.cpp
+  src/runtime.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -29,6 +36,11 @@ if("$ENV{ENABLE_AGNOCAST}" STREQUAL "1")
     agnocastlib
     autoware_utils_rclcpp
     message_filters
+    diagnostic_updater
+    geometry_msgs
+    tf2
+    tf2_ros
+    glog
   )
   target_compile_definitions(${PROJECT_NAME} PUBLIC USE_AGNOCAST_ENABLED)
 else()
@@ -36,6 +48,11 @@ else()
     rclcpp
     autoware_utils_rclcpp
     message_filters
+    diagnostic_updater
+    geometry_msgs
+    tf2
+    tf2_ros
+    glog
   )
 endif()
 
@@ -46,9 +63,19 @@ ament_export_include_directories(
 ament_export_dependencies(
   autoware_utils_rclcpp
   class_loader
+  geometry_msgs
   message_filters
   rclcpp
   rclcpp_components
+  diagnostic_updater
+  tf2
+  tf2_ros
+  glog
+)
+
+ament_export_libraries(
+  ${PROJECT_NAME}
+  glog
 )
 
 if(DEFINED ENV{ENABLE_AGNOCAST} AND "$ENV{ENABLE_AGNOCAST}" STREQUAL "1")
@@ -80,5 +107,24 @@ install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+# The <autoware_node> launch action. SETUP_CFG carries the entry point the launch frontend looks
+# the extension up by, so the action ships with the wrapper it belongs to.
+ament_python_install_package(${PROJECT_NAME} SETUP_CFG setup.cfg)
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_autoware_node
+    test/test_autoware_node.py
+    APPEND_ENV PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}
+  )
+
+  find_package(std_msgs REQUIRED)
+  file(GLOB_RECURSE test_files test/main.cpp test/cases/*.cpp)
+  ament_auto_add_gtest(test_${PROJECT_NAME} ${test_files})
+  target_include_directories(test_${PROJECT_NAME} PRIVATE test)
+  target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME})
+  ament_target_dependencies(test_${PROJECT_NAME} std_msgs)
+endif()
 
 autoware_ament_auto_package()

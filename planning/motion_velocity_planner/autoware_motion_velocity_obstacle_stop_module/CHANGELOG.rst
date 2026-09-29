@@ -5,6 +5,65 @@ Changelog for package autoware_motion_velocity_obstacle_stop_module
 1.1.0 (2025-05-01)
 ------------------
 
+1.10.0 (2026-09-28)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* docs(planning): point the autoware_launch config links at their current path (`#1406 <https://github.com/autowarefoundation/autoware_core/issues/1406>`_)
+  `pre-commit-optional` fails on every PR with three dead links, all pointing
+  into `autoware_launch/config/planning/`. That tree moved to the
+  `autoware_planning_config` package:
+  autoware_launch/config/planning/scenario_planning/common/
+  -> autoware_universe_launch/autoware_planning_config/config/scenario_planning/common/
+  `autoware_motion_velocity_planner/README.md` linked `nearest_search.param.yaml`
+  and `common.param.yaml`; `autoware_path_generator/README.md` linked the former.
+  All three now resolve.
+  `autoware_motion_velocity_obstacle_stop_module/README.md` names the planning
+  preset in prose rather than as a link, so the checker never flagged it, but the
+  path was stale for the same reason and 404s too. Its target moved to
+  `autoware_universe_launch/autoware_planning_config/config/preset/`.
+  No `autoware_launch/config/planning` path is left in the repository.
+  `pre-commit run --config .pre-commit-config-optional.yaml markdown-link-check`
+  passes on all three files.
+* fix(planning): declare the dependencies these packages use (`#1372 <https://github.com/autowarefoundation/autoware_core/issues/1372>`_)
+  Each of these packages uses a package it never declares. Either it includes a
+  header of that package, or it names a symbol of it while the header arrives
+  through another dependency. Both build today only because some declared
+  dependency re-exports the owner, so a change in an unrelated repository can
+  break them without anything here changing.
+  The tag follows where the dependency is used: a use in an installed header or
+  in code compiled into the library takes <depend>, one reached only from test/
+  takes <test_depend>. System libraries are named by the rosdep key this
+  workspace already prefers.
+  A clean-context review of the pull request found five more direct uses with no manifest entry. Add one entry for each:
+  - autoware_path_generator: tf2 (tf2::getYaw in src/utils.cpp)
+  - autoware_motion_velocity_planner_common: tf2 (tf2::getYaw in src/planner_data.cpp and src/polygon_utils.cpp)
+  - autoware_motion_velocity_obstacle_stop_module: autoware_planning_factor_interface (constructed in src/obstacle_stop_module.cpp)
+  - autoware_behavior_velocity_stop_line_module: autoware_planning_factor_interface (used in src/experimental/scene.cpp)
+  - autoware_velocity_smoother: rclcpp_components (register_node_macro.hpp in src/node.cpp)
+* Contributors: Mete Fatih Cırıt, Takayuki AKAMINE, github-actions
+
+1.9.0 (2026-06-24)
+------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* test(autoware_motion_velocity_obstacle_stop_module): unit-test stop-decision helpers and PathLengthBuffer (`#1117 <https://github.com/autowarefoundation/autoware_core/issues/1117>`_)
+  Extract the pure stop-decision helpers (calc_minimum_distance_to_stop,
+  calc_estimation_time, calc_x_offset_to_bumper, calc_time_to_reach_collision_point,
+  calc_braking_dist_along_trajectory, create_polygon_param) out of the anonymous
+  namespace in obstacle_stop_module.cpp into a named internal namespace header
+  (decision_helpers.hpp, namespace obstacle_stop_internal) so the gtest binary can
+  link against them, and add value-asserting unit tests for every branch.
+  Also add unit tests for the header-only PathLengthBuffer state machine
+  (activation timing, active/inactive eviction, nearest-active comparator, and the
+  positive-relative-distance update path), and make path_length_buffer.hpp
+  self-contained by including the headers it relies on (types.hpp, rclcpp/time,
+  geometry_msgs/point, <algorithm>) instead of leaning on transitive includes.
+  The plugin's public API/ABI is unchanged: the helpers are not part of
+  PluginModuleInterface, and the existing unqualified call sites keep working via
+  using-declarations. No behavior change.
+  Refs: `autowarefoundation/autoware_core#1096 <https://github.com/autowarefoundation/autoware_core/issues/1096>`_
+* feat(motion_velocity_planner): support ANIMAL and HAZARD labels (`#1089 <https://github.com/autowarefoundation/autoware_core/issues/1089>`_)
+* Contributors: Yoshi Ri, Yutaka Kondo, github-actions
+
 1.8.0 (2026-05-01)
 ------------------
 * Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base

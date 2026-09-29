@@ -13,6 +13,40 @@ Changelog for package autoware_localization_util
   Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
 * Contributors: NorahXiong
 
+1.10.0 (2026-09-28)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* fix(localization): declare the dependencies these packages use (`#1369 <https://github.com/autowarefoundation/autoware_core/issues/1369>`_)
+  Each of these packages uses a package it never declares. Either it includes a
+  header of that package, or it names a symbol of it while the header arrives
+  through another dependency. Both build today only because some declared
+  dependency re-exports the owner, so a change in an unrelated repository can
+  break them without anything here changing.
+  The tag follows where the dependency is used: a use in an installed header or
+  in code compiled into the library takes <depend>, one reached only from test/
+  takes <test_depend>. System libraries are named by the rosdep key this
+  workspace already prefers.
+* Contributors: Mete Fatih Cırıt, github-actions
+
+1.9.0 (2026-06-24)
+------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* refactor(autoware_localization_util): delegate util_func helpers to autoware_utils (`#1106 <https://github.com/autowarefoundation/autoware_core/issues/1106>`_)
+  Internally delegate util_func's get_rpy / norm / rpy_rad_to_quaternion /
+  rpy_deg_to_quaternion / calc_diff_for_radian to their autoware_utils_geometry
+  and autoware_utils_math equivalents, removing the duplicated tf2/math code while
+  keeping the public signatures so ndt_scan_matcher, ekf_localizer and
+  gyro_odometer remain unaffected.
+  get_rpy, norm and the rpy-to-quaternion helpers are behavior-preserving.
+  calc_diff_for_radian now delegates to autoware_utils_math::normalize_radian,
+  which additionally normalizes differences whose magnitude exceeds 3*pi (the
+  previous single-step wrap left those out of (-pi, pi)); the boundary value
+  +pi now maps to -pi. Characterization tests pin the shared in-range behavior
+  and a RED test pins the corrected large-difference normalization.
+  Add autoware_utils_geometry and autoware_utils_math to package.xml.
+  Refs: `autowarefoundation/autoware_core#1096 <https://github.com/autowarefoundation/autoware_core/issues/1096>`_
+* Contributors: Yutaka Kondo, github-actions
+
 1.8.0 (2026-05-01)
 ------------------
 * Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base

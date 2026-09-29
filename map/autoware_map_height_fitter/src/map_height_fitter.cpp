@@ -14,9 +14,14 @@
 
 #include "autoware/map_height_fitter/map_height_fitter.hpp"
 
+#include "map_height_fitter_kernel.hpp"
+
+#include <autoware/agnocast_wrapper/autoware_agnocast_wrapper.hpp>
+#include <autoware/agnocast_wrapper/node.hpp>
+#include <autoware/agnocast_wrapper/parameter_client.hpp>
+#include <autoware/agnocast_wrapper/tf2.hpp>
 #include <autoware/lanelet2_utils/conversion.hpp>
 #include <autoware/qos_utils/qos_compatibility.hpp>
-#include <tf2_ros/transform_listener.hpp>
 
 #include <autoware_map_msgs/msg/lanelet_map_bin.hpp>
 #include <autoware_map_msgs/srv/get_partial_point_cloud_map.hpp>
@@ -29,7 +34,7 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <string>
 
@@ -40,7 +45,7 @@ struct MapHeightFitter::Impl
 {
   static constexpr char enable_partial_load[] = "enable_partial_load";
 
-  explicit Impl(rclcpp::Node * node);
+  explicit Impl(autoware::agnocast_wrapper::Node * node);
   void on_pcd_map(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg);
   void on_vector_map(const autoware_map_msgs::msg::LaneletMapBin::ConstSharedPtr msg);
   bool get_partial_point_cloud_map(const Point & point);
@@ -48,25 +53,27 @@ struct MapHeightFitter::Impl
   std::optional<Point> fit(const Point & position, const std::string & frame);
 
   tf2::BufferCore tf2_buffer_;
-  tf2_ros::TransformListener tf2_listener_;
+  autoware::agnocast_wrapper::TransformListener tf2_listener_;
   std::string map_frame_;
-  rclcpp::Node * node_;
+  autoware::agnocast_wrapper::Node * node_;
 
   std::string fit_target_;
 
   // for fitting by pointcloud_map_loader
   rclcpp::CallbackGroup::SharedPtr group_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr map_cloud_;
-  rclcpp::Client<autoware_map_msgs::srv::GetPartialPointCloudMap>::SharedPtr cli_pcd_map_;
-  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcd_map_;
-  rclcpp::AsyncParametersClient::SharedPtr params_pcd_map_loader_;
+  pcl::KdTreeFLANN<pcl::PointXYZ> map_cloud_kdtree_;
+  AUTOWARE_CLIENT_PTR(autoware_map_msgs::srv::GetPartialPointCloudMap) cli_pcd_map_;
+  AUTOWARE_SUBSCRIPTION_PTR(sensor_msgs::msg::PointCloud2) sub_pcd_map_;
+  std::unique_ptr<autoware::agnocast_wrapper::AsyncParametersClient> params_pcd_map_loader_;
 
   // for fitting by vector_map_loader
   lanelet::LaneletMapPtr vector_map_;
-  rclcpp::Subscription<autoware_map_msgs::msg::LaneletMapBin>::SharedPtr sub_vector_map_;
+  AUTOWARE_SUBSCRIPTION_PTR(autoware_map_msgs::msg::LaneletMapBin) sub_vector_map_;
 };
 
-MapHeightFitter::Impl::Impl(rclcpp::Node * node) : tf2_listener_(tf2_buffer_), node_(node)
+MapHeightFitter::Impl::Impl(autoware::agnocast_wrapper::Node * node)
+: tf2_listener_(tf2_buffer_, *node), node_(node)
 {
   fit_target_ = node->declare_parameter<std::string>("map_height_fitter.target");
   if (fit_target_ == "pointcloud_map") {
@@ -93,7 +100,8 @@ MapHeightFitter::Impl::Impl(rclcpp::Node * node) : tf2_listener_(tf2_buffer_), n
 
     const auto map_loader_name =
       node->declare_parameter<std::string>("map_height_fitter.map_loader_name");
-    params_pcd_map_loader_ = rclcpp::AsyncParametersClient::make_shared(node, map_loader_name);
+    params_pcd_map_loader_ =
+      std::make_unique<autoware::agnocast_wrapper::AsyncParametersClient>(node, map_loader_name);
     params_pcd_map_loader_->wait_for_service();
     params_pcd_map_loader_->get_parameters({enable_partial_load}, callback);
 
@@ -113,6 +121,7 @@ void MapHeightFitter::Impl::on_pcd_map(const sensor_msgs::msg::PointCloud2::Cons
   map_frame_ = msg->header.frame_id;
   map_cloud_ = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
   pcl::fromROSMsg(*msg, *map_cloud_);
+  map_cloud_kdtree_ = build_pointcloud_xy_kdtree(*map_cloud_);
 }
 
 bool MapHeightFitter::Impl::get_partial_point_cloud_map(const Point & point)
@@ -150,6 +159,11 @@ bool MapHeightFitter::Impl::get_partial_point_cloud_map(const Point & point)
     res->new_pointcloud_with_ids.size());
 
   sensor_msgs::msg::PointCloud2 pcd_msg;
+  std::size_t total_data_size = 0;
+  for (const auto & pcd_with_id : res->new_pointcloud_with_ids) {
+    total_data_size += pcd_with_id.pointcloud.data.size();
+  }
+  pcd_msg.data.reserve(total_data_size);
   for (const auto & pcd_with_id : res->new_pointcloud_with_ids) {
     if (pcd_msg.width == 0) {
       pcd_msg = pcd_with_id.pointcloud;
@@ -163,6 +177,7 @@ bool MapHeightFitter::Impl::get_partial_point_cloud_map(const Point & point)
   map_frame_ = res->header.frame_id;
   map_cloud_ = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
   pcl::fromROSMsg(pcd_msg, *map_cloud_);
+  map_cloud_kdtree_ = build_pointcloud_xy_kdtree(*map_cloud_);
   return true;
 }
 
@@ -181,38 +196,21 @@ double MapHeightFitter::Impl::get_ground_height(const Point & point) const
   const double x = point.x;
   const double y = point.y;
 
-  double height = INFINITY;
   if (fit_target_ == "pointcloud_map") {
-    // find distance d to closest point
-    double min_dist2 = INFINITY;
-    for (const auto & p : map_cloud_->points) {
-      const double dx = x - p.x;
-      const double dy = y - p.y;
-      const double sd = (dx * dx) + (dy * dy);
-      min_dist2 = std::min(min_dist2, sd);
-    }
-
-    // find lowest height within radius (d+1.0)
-    const double radius2 = std::pow(std::sqrt(min_dist2) + 1.0, 2.0);
-
-    for (const auto & p : map_cloud_->points) {
-      const double dx = x - p.x;
-      const double dy = y - p.y;
-      const double sd = (dx * dx) + (dy * dy);
-      if (sd < radius2) {
-        height = std::min(height, static_cast<double>(p.z));
-      }
-    }
-  } else if (fit_target_ == "vector_map") {
-    const auto closest_points = vector_map_->pointLayer.nearest(lanelet::BasicPoint2d{x, y}, 1);
-    if (closest_points.empty()) {
+    return get_ground_height_from_pointcloud(*map_cloud_, map_cloud_kdtree_, x, y, point.z);
+  }
+  if (fit_target_ == "vector_map") {
+    // The kernel runs the nearest-point search once; std::nullopt means no closest lanelet, in
+    // which case we warn and fall back to the original point.z (matching the original behavior).
+    const auto height = get_ground_height_from_vector_map(*vector_map_, x, y, point.z);
+    if (!height) {
       RCLCPP_WARN_STREAM(logger, "failed to get closest lanelet");
       return point.z;
     }
-    height = closest_points.front().z();
+    return *height;
   }
 
-  return std::isfinite(height) ? height : point.z;
+  return point.z;  // unreachable: fit() validates fit_target_ before calling get_ground_height
 }
 
 std::optional<Point> MapHeightFitter::Impl::fit(const Point & position, const std::string & frame)
@@ -251,7 +249,7 @@ std::optional<Point> MapHeightFitter::Impl::fit(const Point & position, const st
 
   // transform frame to map_frame_
   try {
-    const auto stamped = tf2_buffer_.lookupTransform(frame, map_frame_, tf2::TimePointZero);
+    const auto stamped = tf2_buffer_.lookupTransform(map_frame_, frame, tf2::TimePointZero);
     tf2::doTransform(point, point, stamped);
   } catch (tf2::TransformException & exception) {
     RCLCPP_WARN_STREAM(logger, "failed to lookup transform: " << exception.what());
@@ -263,7 +261,7 @@ std::optional<Point> MapHeightFitter::Impl::fit(const Point & position, const st
 
   // transform map_frame_ to frame
   try {
-    const auto stamped = tf2_buffer_.lookupTransform(map_frame_, frame, tf2::TimePointZero);
+    const auto stamped = tf2_buffer_.lookupTransform(frame, map_frame_, tf2::TimePointZero);
     tf2::doTransform(point, point, stamped);
   } catch (tf2::TransformException & exception) {
     RCLCPP_WARN_STREAM(logger, "failed to lookup transform: " << exception.what());
@@ -275,7 +273,7 @@ std::optional<Point> MapHeightFitter::Impl::fit(const Point & position, const st
   return point;
 }
 
-MapHeightFitter::MapHeightFitter(rclcpp::Node * node)
+MapHeightFitter::MapHeightFitter(autoware::agnocast_wrapper::Node * node)
 {
   impl_ = std::make_unique<Impl>(node);
 }

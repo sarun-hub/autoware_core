@@ -15,15 +15,19 @@
 """Python equivalent of agnocast_env.launch.xml.
 
 Configuration:
-- Checks ENABLE_AGNOCAST environment variable (set to "1" to enable)
+- use_agnocast arg overrides the ENABLE_AGNOCAST environment variable per include
+  (set to "1" to enable). When not passed by the including launch file, it defaults to the
+  ENABLE_AGNOCAST environment variable (which itself defaults to "0").
 - Heaphook path is configurable via the agnocast_heaphook_path arg
-  (default: /opt/ros/humble/lib/libagnocast_heaphook.so)
+  (default: /opt/ros/$ROS_DISTRO/lib/libagnocast_heaphook.so, falls back to humble)
 
 Provides the following launch configurations:
 - ld_preload_value: LD_PRELOAD value with heaphook prepended when Agnocast is enabled
 - container_package: resolved component container package name
 - container_executable: resolved component container executable name
 """
+
+import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -34,7 +38,7 @@ from launch.substitutions import LaunchConfiguration
 
 
 def _resolve_agnocast_env(context):
-    use_agnocast = context.launch_configurations.get("use_agnocast", "0")
+    use_agnocast = context.perform_substitution(LaunchConfiguration("use_agnocast"))
     use_multithread = context.perform_substitution(LaunchConfiguration("use_multithread"))
     heaphook_path = context.perform_substitution(LaunchConfiguration("agnocast_heaphook_path"))
     existing_ld_preload = context.perform_substitution(
@@ -68,15 +72,15 @@ def generate_launch_description():
         [
             DeclareLaunchArgument(
                 "agnocast_heaphook_path",
-                default_value="/opt/ros/humble/lib/libagnocast_heaphook.so",
+                default_value=f"/opt/ros/{os.environ.get('ROS_DISTRO', 'humble')}/lib/libagnocast_heaphook.so",
             ),
             DeclareLaunchArgument(
                 "use_multithread",
                 default_value="false",
             ),
-            SetLaunchConfiguration(
+            DeclareLaunchArgument(
                 "use_agnocast",
-                EnvironmentVariable("ENABLE_AGNOCAST", default_value="0"),
+                default_value=EnvironmentVariable("ENABLE_AGNOCAST", default_value="0"),
             ),
             OpaqueFunction(function=_resolve_agnocast_env),
         ]
