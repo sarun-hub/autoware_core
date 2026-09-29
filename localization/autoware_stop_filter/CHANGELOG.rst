@@ -5,6 +5,49 @@ Changelog for package autoware_stop_filter
 1.1.0 (2025-05-01)
 ------------------
 
+1.10.0 (2026-09-28)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* test(autoware_stop_filter): use test fixture in StopFilterNode test (`#1471 <https://github.com/autowarefoundation/autoware_core/issues/1471>`_)
+  Co-authored-by: Tran Huu Nhat Huy <29034232+TranHuuNhatHuy@users.noreply.github.com>
+* feat(localization): add node designs for the pose/twist estimation nodes (`#1409 <https://github.com/autowarefoundation/autoware_core/issues/1409>`_)
+  * feat(localization): add node designs for the pose/twist estimation nodes
+  Declare NdtScanMatcher, EkfLocalizer, GyroOdometer, StopFilter and
+  Twist2Accel node designs, with remap_target set to each node's hardcoded
+  topic and service names, and extend PoseInitializer with the map, GNSS,
+  stop-check inputs and the align/trigger/partial-map-load clients that
+  pose_initializer.launch.xml remaps. These let a system designer module
+  compose the localization stack directly from nodes.
+  * feat(localization): describe node designs and bump to format 0.4.0
+  ---------
+* fix(localization): fix test to use `get_node_base_interface` for `agnocast_wrapper::Node` (`#1209 <https://github.com/autowarefoundation/autoware_core/issues/1209>`_)
+  fix test for agnocast_wrapper::Node
+* Contributors: Koichi Imai, Taekjin LEE, Takahisa Ishikawa, github-actions
+
+1.9.0 (2026-06-24)
+------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* feat(stop_filter): apply `agnocast_wrapper::Node` to `stop_filter` (`#1195 <https://github.com/autowarefoundation/autoware_core/issues/1195>`_)
+  * apply agnocast_wrapper::Node
+  * style(pre-commit): autofix
+  * fix cpplint
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* refactor(stop_filter): unify core logic to message conversion (`#1188 <https://github.com/autowarefoundation/autoware_core/issues/1188>`_)
+  * refactor(stop_filter): unify StopFilter to message-to-message conversion
+  Move StopFilterProcessor from stop_filter_node into stop_filter and rename it
+  to StopFilter, deleting the old pure-logic StopFilter class and the Vector3D /
+  FilterResult structs. The core logic class now converts ROS2 messages directly
+  to ROS2 messages, matching the AccelEstimator pattern in autoware_twist2accel.
+  Unit tests in test_stop_filter.cpp now exercise the message-based StopFilter,
+  while test_stop_filter_node.cpp keeps only the node-level integration test.
+  * test(stop_filter): enable StopFilterNode stop-detection integration test
+  Remove the DISABLED\_ prefix so the node-level pub/sub integration test runs.
+  ---------
+  Co-authored-by: Takahisa.Ishikawa <takahisa.ishikawa@tier4.jp>
+  Co-authored-by: Junya Sasaki <j2sasaki1990@gmail.com>
+* Contributors: Koichi Imai, Takahisa Ishikawa, github-actions
+
 1.8.0 (2026-05-01)
 ------------------
 * Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base

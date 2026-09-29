@@ -11,6 +11,108 @@ Changelog for package autoware_route_handler
   Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
 * Contributors: Mert Çolak
 
+1.10.0 (2026-09-28)
+-------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* test(autoware_route_handler): implement characterization test (`#1439 <https://github.com/autowarefoundation/autoware_core/issues/1439>`_)
+  * added test for verifying lane change inetrval
+  * added etst for checking area routing state and termination when traversing cyclic route
+  * added test to check if bicycle & opposite direction lane quesies on standard map
+  * verifies pullover pullout and deadend queries
+  * added test to check route planning when routing cost permits nondrivable lanelets
+  * added test to check route metadata accerssors and clearning a route resets raedy state
+  * verifies public topological queries
+  * verifies planning & segment creation via LaneletOrArea
+  * verifies routing/segment conversion/traversal etc.
+  * added more details on each test case and why I put em there, lcov coverage, etc.
+  * split into multi tests, change name to Harry Porter style, run and build and test all good
+  * [komiya]added custom map-relied test for findDrivableLanePathIncludeAreas func
+  * added brief comments on each test case
+  * const reference
+  * added star/goal poses (just to be clear)
+  * [ishikawa] removed all set test route calls that overlaps with fixture
+  * [komiya] fixed that useless EXPECT_TRUE(success || ....); assertion
+  * [komiya] fixed that useless EXPECT_TRUE(success || ....); assertion
+  * strengthen assertions with lane IDs instead
+  ---------
+* fix(planning): declare the dependencies these packages use (`#1372 <https://github.com/autowarefoundation/autoware_core/issues/1372>`_)
+  Each of these packages uses a package it never declares. Either it includes a
+  header of that package, or it names a symbol of it while the header arrives
+  through another dependency. Both build today only because some declared
+  dependency re-exports the owner, so a change in an unrelated repository can
+  break them without anything here changing.
+  The tag follows where the dependency is used: a use in an installed header or
+  in code compiled into the library takes <depend>, one reached only from test/
+  takes <test_depend>. System libraries are named by the rosdep key this
+  workspace already prefers.
+  A clean-context review of the pull request found five more direct uses with no manifest entry. Add one entry for each:
+  - autoware_path_generator: tf2 (tf2::getYaw in src/utils.cpp)
+  - autoware_motion_velocity_planner_common: tf2 (tf2::getYaw in src/planner_data.cpp and src/polygon_utils.cpp)
+  - autoware_motion_velocity_obstacle_stop_module: autoware_planning_factor_interface (constructed in src/obstacle_stop_module.cpp)
+  - autoware_behavior_velocity_stop_line_module: autoware_planning_factor_interface (used in src/experimental/scene.cpp)
+  - autoware_velocity_smoother: rclcpp_components (register_node_macro.hpp in src/node.cpp)
+* refactor(autoware_route_handler): remove rclcpp::ok() from lanelet sequence loops (`#1289 <https://github.com/autowarefoundation/autoware_core/issues/1289>`_)
+  * feat(autoware_route_handler): use agnocast_wrapper::ok() for lanelet sequence loops
+  * fix to delete rclcpp::ok
+  * test(autoware_route_handler): add regression tests for lanelet sequence loop termination
+  ---------
+* fix(autoware_route_handler): use portable lanelet ID logging (`#1271 <https://github.com/autowarefoundation/autoware_core/issues/1271>`_)
+* Contributors: Koichi Imai, Mete Fatih Cırıt, Tobias Fischer, Tran Huu Nhat Huy, github-actions
+
+1.9.0 (2026-06-24)
+------------------
+* Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
+* feat: add setAllowArea method in route handler for downstream module route validation (`#1194 <https://github.com/autowarefoundation/autoware_core/issues/1194>`_)
+  * feat: add setAllowArea method in route handler and support for finding next_lanelets_sequence when route consists areas
+  * style(pre-commit): autofix
+  * test(autoware_route_handler): add unit tests for allow-area route support
+  * fix: address precommit-ci errors
+  ---------
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* perf(autoware_route_handler): drop duplicate routing graph build in setMap (`#1119 <https://github.com/autowarefoundation/autoware_core/issues/1119>`_)
+  * perf(autoware_route_handler): drop duplicate routing graph build in setMap
+  setMap() built the whole-map vehicle RoutingGraph twice and ran an unused
+  full-map lanelet query in both overloads. Building a RoutingGraph over an
+  entire HD map is one of the most expensive operations in the stack.
+  - In the LaneletMapConstPtr overload, instantiate_routing_graph_and_traffic_rules
+  already builds the vehicle graph with the Germany/Vehicle rules, which is
+  identical to the vehicle graph rebuilt for the overall-graph container. Reuse
+  the already-built routing_graph_ptr\_ as the container's vehicle slot instead of
+  rebuilding it, halving the routing-graph build cost of this overload.
+  - In the LaneletMapBin overload, routing_graph_ptr\_ is built with the Autoware
+  participant rules (lanelet::autoware::DefaultLocation), which permit routing
+  through areas, whereas the overall-graph container intentionally uses the plain
+  Germany/Vehicle vehicle graph. To preserve the observable getOverallGraphPtr()
+  behavior, the separate vehicle graph build is kept here; only the dead
+  all_lanelets query is removed.
+  - Remove the unused `all_lanelets` lanelet-layer query from both overloads.
+  Add characterization tests (test/test_set_map.cpp) pinning the observable graph
+  state exposed via getRoutingGraphPtr() / getOverallGraphPtr(): the overall-graph
+  container always exposes two non-null graphs, and for the LaneletMapConstPtr
+  overload the container's vehicle graph encodes the same per-lanelet following
+  relations as routing_graph_ptr\_ and is deterministic across reconstruction.
+  No public API change. Behavior preserved (verified by full package test suite).
+  Refs: `autowarefoundation/autoware_core#1096 <https://github.com/autowarefoundation/autoware_core/issues/1096>`_
+  * test(autoware_route_handler): assert vehicle graph against independent reference (`#82 <https://github.com/autowarefoundation/autoware_core/issues/82>`_)
+  Build a separate Germany/Vehicle routing graph in the test and compare the reused production routing graph against it, instead of comparing the routing graph to the container's vehicle slot (the same shared_ptr), which made the assertion f(x)==f(x). Add a pointer-identity check to document the intended reuse.
+  Refs: `autowarefoundation/autoware_core#1096 <https://github.com/autowarefoundation/autoware_core/issues/1096>`_
+  * test(autoware_route_handler): drop weak setMap characterization tests
+  Remove test/test_set_map.cpp per review. On the area-free sample map, Germany/Vehicle and DefaultLocation rules produce identical following() relations, so the tests would pass even with the wrong rules and were hard to read. The production setMap() change has no observable behavior change and remains; a focused setMap test on an area-containing fixture can be added separately.
+  Refs: `autowarefoundation/autoware_core#1096 <https://github.com/autowarefoundation/autoware_core/issues/1096>`_
+  ---------
+* feat: add support for area for route planning (`#993 <https://github.com/autowarefoundation/autoware_core/issues/993>`_)
+  * feat: add support for area for route planning
+  * style(pre-commit): autofix
+  * feat(route_handler): publish mixed lanelet/area routes in LaneletRoute segments
+  * style(pre-commit): autofix
+  * feat(map): visualize LaneletMap areaLayer in vector map RViz markers
+  * style(pre-commit): autofix
+  * revert: remove area visualization commit (ebbc254d80df34dded119e7a6ecb716ebe4d620c) to split into two PRs
+  ---------
+  Co-authored-by: Ryohsuke Mitsudome <ryohsuke.mitsudome@tier4.jp>
+  Co-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>
+* Contributors: Yutaka Kondo, emmeyteja, github-actions
+
 1.8.0 (2026-05-01)
 ------------------
 * Merge remote-tracking branch 'origin/main' into tmp/bot/bump_version_base
